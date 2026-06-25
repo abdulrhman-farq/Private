@@ -1,4 +1,5 @@
 import React from 'react'
+import { cloudLoad, cloudSave } from './supabase.js'
 
 // أيام تبويض رويدا — faithful React port of the Claude Design prototype.
 // All cycle math, seeding and localStorage persistence mirror the original 1:1.
@@ -7,6 +8,7 @@ export default class App extends React.Component {
     super(props)
     const n = new Date()
     this.load()
+    this.syncKey = this.initSyncKey()
     this.state = {
       screen: 'splash',
       calY: n.getFullYear(),
@@ -15,6 +17,9 @@ export default class App extends React.Component {
       logISO: this.iso(n),
       saved: false,
       tick: 0,
+      syncing: false,
+      syncedAt: 0,
+      linkCode: '',
     }
   }
 
@@ -22,8 +27,52 @@ export default class App extends React.Component {
     this._t = setTimeout(() => {
       if (this.state.screen === 'splash') this.setState({ screen: 'home' })
     }, 2300)
+    this.syncFromCloud()
   }
-  componentWillUnmount() { clearTimeout(this._t) }
+  componentWillUnmount() { clearTimeout(this._t); clearTimeout(this._cloudT) }
+
+  // ---- cloud sync (Supabase) ----
+  initSyncKey() {
+    let k = null
+    try { k = localStorage.getItem('rweida_sync_key') } catch (e) {}
+    if (!k) { k = this.genKey(); try { localStorage.setItem('rweida_sync_key', k) } catch (e) {} }
+    return k
+  }
+  genKey() {
+    try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return 'r-' + crypto.randomUUID() } catch (e) {}
+    return 'r-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+  }
+  async syncFromCloud() {
+    this.setState({ syncing: true })
+    const remote = await cloudLoad(this.syncKey)
+    if (remote && remote.settings) {
+      const rt = remote.updatedAt || '', lt = this.data.updatedAt || ''
+      if (rt > lt) { this.persist(remote); this.setState({ tick: this.state.tick + 1, syncing: false, syncedAt: Date.now() }); return }
+      if (lt > rt) await cloudSave(this.syncKey, this.data)
+    } else {
+      await cloudSave(this.syncKey, this.data)
+    }
+    this.setState({ syncing: false, syncedAt: Date.now() })
+  }
+  scheduleCloud() {
+    clearTimeout(this._cloudT)
+    this.setState({ syncing: true })
+    this._cloudT = setTimeout(async () => {
+      const ok = await cloudSave(this.syncKey, this.data)
+      this.setState({ syncing: false, syncedAt: ok ? Date.now() : this.state.syncedAt })
+    }, 800)
+  }
+  applySyncKey(k) {
+    k = (k || '').trim()
+    if (k.length < 16) { if (typeof alert === 'function') alert('الرمز غير صحيح — تأكّدي من نسخه كاملًا.'); return }
+    this.syncKey = k
+    try { localStorage.setItem('rweida_sync_key', k) } catch (e) {}
+    this.hap(); this.setState({ syncing: true, linkCode: '' })
+    cloudLoad(k).then(remote => {
+      if (remote && remote.settings) { this.persist(remote); this.setState({ tick: this.state.tick + 1, syncing: false, syncedAt: Date.now() }) }
+      else { cloudSave(k, this.data); this.setState({ syncing: false, syncedAt: Date.now() }) }
+    })
+  }
 
   hap() { try { navigator.vibrate && navigator.vibrate(8) } catch (e) {} }
 
@@ -36,7 +85,7 @@ export default class App extends React.Component {
     this.data = d
   }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
-  save(d) { this.persist(d); this.setState({ tick: this.state.tick + 1 }) }
+  save(d) { d = { ...d, updatedAt: new Date().toISOString() }; this.persist(d); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud() }
   seed() {
     // بداية نظيفة بلا بيانات تجريبية. آخر دورة ٢٣ يونيو، والدورة السابقة ٢٧ مايو
     // (دورة مكتملة طولها ٢٧ يومًا)، كلاهما مسجّل كبداية دورة. القيم قابلة للتعديل.
@@ -95,7 +144,7 @@ export default class App extends React.Component {
   }
   toggleTheme() { const s = { ...this.data.settings, theme: this.data.settings.theme === 'dark' ? 'light' : 'dark' }; this.hap(); this.save({ ...this.data, settings: s }) }
   toggleRem(k) { const r = { ...this.data.settings.reminders }; r[k] = !r[k]; this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, reminders: r } }) }
-  resetAll() { if (typeof confirm === 'function' && !confirm('سيتم حذف جميع البيانات. متابعة؟')) return; localStorage.removeItem('rweida_v1'); const d = this.seed(); this.persist(d); this.setState({ tick: this.state.tick + 1, screen: 'home' }) }
+  resetAll() { if (typeof confirm === 'function' && !confirm('سيتم حذف جميع البيانات. متابعة؟')) return; try { localStorage.removeItem('rweida_v1') } catch (e) {} const d = this.seed(); d.updatedAt = new Date().toISOString(); this.persist(d); this.setState({ tick: this.state.tick + 1, screen: 'home' }); this.scheduleCloud() }
   emptyLog() { return { flow: '', symptoms: [], mood: '', intimacy: false, ovTest: '', pregTest: '', bbt: '', note: '' } }
   curLog() { return this.data.logs[this.state.logISO] || this.emptyLog() }
   patchLog(p) { const iso = this.state.logISO, l = { ...this.curLog(), ...p }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.save({ ...this.data, logs }); this.setState({ saved: false }) }
@@ -293,6 +342,11 @@ export default class App extends React.Component {
       incPeriod: () => this.bumpPeriod(1), decPeriod: () => this.bumpPeriod(-1),
       remOpts: rem, themeCls: 'sw' + (s.theme === 'dark' ? ' on' : ''), onTheme: () => this.toggleTheme(),
       themeLabel: s.theme === 'dark' ? 'الوضع الداكن' : 'الوضع الفاتح', resetData: () => this.resetAll(),
+      syncKey: this.syncKey,
+      syncStatus: this.state.syncing ? 'جارٍ الحفظ…' : (this.state.syncedAt ? 'محفوظ ☁️ ' + new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { hour: 'numeric', minute: 'numeric' }).format(new Date(this.state.syncedAt)) : 'بانتظار المزامنة'),
+      copySync: () => { try { navigator.clipboard && navigator.clipboard.writeText(this.syncKey); this.hap() } catch (e) {} },
+      linkCode: this.state.linkCode, onLinkInput: e => this.setState({ linkCode: e.target.value }),
+      applyLink: () => this.applySyncKey(this.state.linkCode),
     }
   }
 
@@ -579,7 +633,22 @@ export default class App extends React.Component {
           <div className="ttl">المظهر</div>
           <div className="srow"><div className="sl"><div className="si2">🌙</div>{v.themeLabel}</div><button className={v.themeCls} onClick={v.onTheme}></button></div>
         </div>
-        <div className="note">🔒 <div>جميع بياناتكِ محفوظة محليًا على جهازكِ فقط، ولا تُرسل إلى أي خادم. هذا التطبيق لا يُغني عن استشارة الطبيب المختص.</div></div>
+        <div className="card">
+          <div className="ttl">المزامنة والحفظ السحابي</div>
+          <p className="selsum">بياناتكِ تُحفظ تلقائيًا في قاعدة بيانات آمنة، فلا تضيع. لمتابعتها على جهاز آخر، انسخي رمز المزامنة وأدخليه في الجهاز الثاني.</p>
+          <div className="srow"><div className="sl"><div className="si2">☁️</div>الحالة</div><div style={{ fontSize: 12, color: 'var(--ink2)', fontWeight: 600 }}>{v.syncStatus}</div></div>
+          <div className="lbl" style={{ marginTop: 12 }}>🔑 رمز المزامنة (سري — لا تشاركيه)</div>
+          <div className="fld">
+            <input className="datein" readOnly value={v.syncKey} onFocus={e => e.target.select()} style={{ flex: 1, fontFamily: 'monospace', fontSize: 11, minWidth: 0 }} />
+            <button className="opt" style={{ flex: '0 0 auto', padding: '11px 16px' }} onClick={v.copySync}>نسخ</button>
+          </div>
+          <div className="lbl" style={{ marginTop: 12 }}>📲 ربط جهاز آخر بهذا الحساب</div>
+          <div className="fld">
+            <input className="datein" placeholder="ألصقي رمز المزامنة هنا" value={v.linkCode} onChange={v.onLinkInput} style={{ flex: 1, fontSize: 12, minWidth: 0 }} />
+            <button className="opt" style={{ flex: '0 0 auto', padding: '11px 16px' }} onClick={v.applyLink}>ربط</button>
+          </div>
+        </div>
+        <div className="note">🔒 <div>بياناتكِ محفوظة محليًا على جهازكِ وفي قاعدة بيانات آمنة لا يصلها أحد إلا عبر رمز المزامنة السري. هذا التطبيق لا يُغني عن استشارة الطبيب المختص.</div></div>
         <button className="danger" onClick={v.resetData}>حذف جميع البيانات</button>
       </div>
     )
