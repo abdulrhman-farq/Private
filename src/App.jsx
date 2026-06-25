@@ -81,8 +81,10 @@ export default class App extends React.Component {
   toggleTheme() { const s = { ...this.data.settings, theme: this.data.settings.theme === 'dark' ? 'light' : 'dark' }; this.hap(); this.save({ ...this.data, settings: s }) }
   toggleRem(k) { const r = { ...this.data.settings.reminders }; r[k] = !r[k]; this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, reminders: r } }) }
   resetAll() { if (typeof confirm === 'function' && !confirm('سيتم حذف جميع البيانات. متابعة؟')) return; localStorage.removeItem('rweida_v1'); const d = this.seed(); this.persist(d); this.setState({ tick: this.state.tick + 1, screen: 'home' }) }
-  curLog() { return this.data.logs[this.state.logISO] || { flow: '', symptoms: [], mood: '', intimacy: false, ovTest: '', bbt: '', note: '' } }
+  emptyLog() { return { flow: '', symptoms: [], mood: '', intimacy: false, ovTest: '', pregTest: '', bbt: '', note: '' } }
+  curLog() { return this.data.logs[this.state.logISO] || this.emptyLog() }
   patchLog(p) { const iso = this.state.logISO, l = { ...this.curLog(), ...p }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.save({ ...this.data, logs }); this.setState({ saved: false }) }
+  patchDay(iso, p) { const l = { ...(this.data.logs[iso] || this.emptyLog()), ...p }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.save({ ...this.data, logs }) }
   toggleSym(x) { const l = this.curLog(), s = l.symptoms.includes(x) ? l.symptoms.filter(y => y !== x) : [...l.symptoms, x]; this.patchLog({ symptoms: s }) }
   shiftLog(n) { this.hap(); this.setState({ logISO: this.iso(this.addDays(this.parse(this.state.logISO), n)), saved: false }) }
   doSave() { this.hap(); this.setState({ saved: true, screen: 'home' }) }
@@ -107,6 +109,16 @@ export default class App extends React.Component {
   lateInfo() {
     const c = this.calc(), late = this.diff(c.today, c.next)
     if (late >= 1) return { show: true, days: late, msg: 'تأخّرت دورتكِ ' + late + ' ' + (late === 1 ? 'يوم' : 'أيام') + ' عن الموعد المتوقّع — يمكنكِ إجراء اختبار الحمل المنزلي الآن. للتأكيد يُنصح بمراجعة الطبيب.' }
+    return { show: false }
+  }
+  pregInfo() {
+    for (let i = 0; i <= 21; i++) {
+      const lg = this.data.logs[this.iso(this.addDays(new Date(), -i))]
+      if (lg && lg.pregTest) {
+        if (lg.pregTest === 'إيجابي') return { show: true, msg: 'نتيجة اختبار الحمل إيجابية 🎉 — مبروك! يُنصح بمراجعة الطبيب لتأكيد الحمل ومتابعته.' }
+        return { show: false }
+      }
+    }
     return { show: false }
   }
   fertileIntimacy() {
@@ -154,37 +166,42 @@ export default class App extends React.Component {
       fertileRange: this.arShort(c.fS) + ' — ' + this.arShort(c.fE),
       cdOvu: Math.max(0, c.dto), cdFertile: Math.max(0, this.diff(c.fS, c.today)), cdPeriod: Math.max(0, c.dtp),
       cdOvuW: c.dto === 1 ? 'يوم' : 'أيام', cdFertileW: this.diff(c.fS, c.today) === 1 ? 'يوم' : 'أيام', cdPeriodW: c.dtp === 1 ? 'يوم' : 'أيام',
-      dailyTip: this.dailyTip(ph), bestDays: this.bestDays(), lateAlert: this.lateInfo(),
+      dailyTip: this.dailyTip(ph), bestDays: this.bestDays(), lateAlert: this.lateInfo(), pregAlert: this.pregInfo(),
     }
   }
   rvCal() {
     const y = this.state.calY, m = this.state.calM, first = new Date(y, m, 1)
     const lead = (first.getDay() + 1) % 7, today = this.iso(new Date())
     const pmap = { period: 'ph-period', fertile: 'ph-fertile', ovu: 'ph-ovu', pred: 'ph-pred', normal: '' }
+    const si = this.state.selISO || today
     const cells = []
     for (let i = 0; i < 42; i++) {
       const date = new Date(y, m, 1 - lead + i), iso = this.iso(date), inM = date.getMonth() === m
       const lg = this.data.logs[iso], ph = this.phaseOf(date)
-      let cls = 'cell ' + pmap[ph]; if (!inM) cls += ' out'; if (iso === today) cls += ' today'; if (iso === this.state.selISO) cls += ' sel'
+      let cls = 'cell ' + pmap[ph]; if (!inM) cls += ' out'; if (iso === today) cls += ' today'; if (iso === si) cls += ' sel'
       cells.push({
         key: i, day: date.getDate(), iso, cls,
-        inti: !!(lg && lg.intimacy), lhpk: !!(lg && lg.ovTest === 'إيجابي'),
-        other: !!(lg && !lg.intimacy && lg.ovTest !== 'إيجابي' && (lg.ovTest || lg.bbt || (lg.symptoms && lg.symptoms.length) || lg.mood)),
+        inti: !!(lg && lg.intimacy), lhpk: !!(lg && lg.ovTest === 'إيجابي'), preg: !!(lg && lg.pregTest === 'إيجابي'),
+        other: !!(lg && !lg.intimacy && lg.ovTest !== 'إيجابي' && lg.pregTest !== 'إيجابي' && (lg.ovTest || lg.pregTest || lg.bbt || lg.flow || (lg.symptoms && lg.symptoms.length) || lg.mood)),
         onClick: () => { this.hap(); this.setState({ selISO: iso }) },
       })
     }
     const weekDays = [{ k: 'س' }, { k: 'ح' }, { k: 'ن' }, { k: 'ث' }, { k: 'ر' }, { k: 'خ' }, { k: 'ج' }].map((w, i) => ({ key: i, d: w.k }))
-    let sel = null; const si = this.state.selISO
-    if (si) {
-      const d = this.parse(si), ph = this.phaseOf(d), l = this.data.logs[si]
-      const lab = { period: 'فترة الدورة', fertile: 'نافذة الخصوبة', ovu: 'يوم التبويض', pred: 'موعد متوقع للدورة', normal: 'مرحلة عادية' }
-      const pm = { period: 'p-period', fertile: 'p-fertile', ovu: 'p-ovu', pred: 'p-period', normal: 'p-normal' }
-      let summary = 'لا توجد سجلات لهذا اليوم'
-      if (l) { const parts = []; if (l.intimacy) parts.push('💞 جماع'); if (l.ovTest) parts.push('🧪 ' + l.ovTest); if (l.bbt) parts.push('🌡 ' + l.bbt + '°'); if (l.mood) parts.push(l.mood); if (l.symptoms && l.symptoms.length) parts.push(l.symptoms.join('، ')); if (parts.length) summary = parts.join('  •  ') }
-      sel = { dateLabel: this.arLong(d), phaseLabel: lab[ph], phasePill: 'pill ' + pm[ph], summary, editDay: () => { this.hap(); this.setState({ logISO: si, screen: 'log', saved: false }) } }
+    const d = this.parse(si), phk = this.phaseOf(d), l = this.data.logs[si], e = l || this.emptyLog()
+    const lab = { period: 'فترة الدورة', fertile: 'نافذة الخصوبة', ovu: 'يوم التبويض', pred: 'موعد متوقع للدورة', normal: 'مرحلة عادية' }
+    const pm = { period: 'p-period', fertile: 'p-fertile', ovu: 'p-ovu', pred: 'p-period', normal: 'p-normal' }
+    let summary = 'لا توجد سجلات لهذا اليوم — سجّلي بسرعة بالأسفل 👇'
+    if (l) { const parts = []; if (l.intimacy) parts.push('💞 جماع'); if (l.ovTest) parts.push('🧪 تبويض: ' + l.ovTest); if (l.pregTest) parts.push('🤍 حمل: ' + l.pregTest); if (l.flow) parts.push('🩸 ' + l.flow); if (l.bbt) parts.push('🌡 ' + l.bbt + '°'); if (l.mood) parts.push(l.mood); if (l.symptoms && l.symptoms.length) parts.push(l.symptoms.join('، ')); if (parts.length) summary = parts.join('  •  ') }
+    const ovActs = ['سلبي', 'إيجابي'].map((o, i) => ({ key: i, label: o, cls: 'opt' + (e.ovTest === o ? (o === 'إيجابي' ? ' onp' : ' on') : ''), onClick: () => this.patchDay(si, { ovTest: e.ovTest === o ? '' : o }) }))
+    const pregActs = ['سلبي', 'إيجابي'].map((o, i) => ({ key: i, label: o, cls: 'opt' + (e.pregTest === o ? (o === 'إيجابي' ? ' onp' : ' on') : ''), onClick: () => this.patchDay(si, { pregTest: e.pregTest === o ? '' : o }) }))
+    const sel = {
+      dateLabel: this.arLong(d), isToday: si === today, phaseLabel: lab[phk], phasePill: 'pill ' + pm[phk], summary,
+      intiCls: 'bigtog' + (e.intimacy ? ' on' : ''), intiTxt: e.intimacy ? 'نعم' : 'لا', toggleInti: () => this.patchDay(si, { intimacy: !e.intimacy }),
+      ovActs, pregActs,
+      editDay: () => { this.hap(); this.setState({ logISO: si, screen: 'log', saved: false }) },
     }
     return {
-      monthLabel: this.arMonth(y, m), weekDays, calCells: cells, hasSel: !!si, sel,
+      monthLabel: this.arMonth(y, m), weekDays, calCells: cells, sel,
       prevMonth: () => { this.hap(); let nm = m - 1, ny = y; if (nm < 0) { nm = 11; ny-- } this.setState({ calM: nm, calY: ny }) },
       nextMonth: () => { this.hap(); let nm = m + 1, ny = y; if (nm > 11) { nm = 0; ny++ } this.setState({ calM: nm, calY: ny }) },
     }
@@ -196,9 +213,10 @@ export default class App extends React.Component {
     const syms = symList.map((s, i) => ({ key: i, label: s, cls: 'chip' + (l.symptoms.includes(s) ? ' on' : ''), onClick: () => this.toggleSym(s) }))
     const moods = ['😀 سعيدة', '😌 هادئة', '😐 عادية', '😣 متوترة', '😢 حزينة'].map((mo, i) => ({ key: i, label: mo, cls: 'mood' + (l.mood === mo ? ' on' : ''), onClick: () => this.patchLog({ mood: l.mood === mo ? '' : mo }) }))
     const ovs = ['سلبي', 'إيجابي', 'غير مؤكد'].map((o, i) => ({ key: i, label: o, cls: 'opt' + (l.ovTest === o ? (o === 'إيجابي' ? ' onp' : ' on') : ''), onClick: () => this.patchLog({ ovTest: l.ovTest === o ? '' : o }) }))
+    const pregs = ['سلبي', 'إيجابي', 'غير مؤكد'].map((o, i) => ({ key: i, label: o, cls: 'opt' + (l.pregTest === o ? (o === 'إيجابي' ? ' onp' : ' on') : ''), onClick: () => this.patchLog({ pregTest: l.pregTest === o ? '' : o }) }))
     return {
       logDateLabel: isToday ? 'اليوم • ' + this.arShort(d) : this.arLong(d),
-      flowOpts: flows, symOpts: syms, moodOpts: moods, ovOpts: ovs,
+      flowOpts: flows, symOpts: syms, moodOpts: moods, ovOpts: ovs, pregOpts: pregs,
       intimacyTxt: l.intimacy ? 'نعم' : 'لا', intimacyCls: 'bigtog' + (l.intimacy ? ' on' : ''), toggleIntimacy: () => this.patchLog({ intimacy: !l.intimacy }),
       bbtVal: l.bbt || '', setBbt: e => this.patchLog({ bbt: e.target.value }),
       noteVal: l.note || '', setNote: e => this.patchLog({ note: e.target.value }),
@@ -292,6 +310,9 @@ export default class App extends React.Component {
           <div><div className="hi">{v.todayLabel}</div><h1 className="nm">{v.greeting} 🤍</h1></div>
           <button className="tbtn" onClick={g.goSettings}>⚙</button>
         </div>
+        {v.pregAlert.show && (
+          <div className="alert good"><div className="ae">🎉</div><div><div className="at">مبروك!</div><div className="ax">{v.pregAlert.msg}</div></div></div>
+        )}
         {v.lateAlert.show && (
           <div className="alert"><div className="ae">🤍</div><div><div className="at">قد يكون موعد اختبار الحمل</div><div className="ax">{v.lateAlert.msg}</div></div></div>
         )}
@@ -355,6 +376,7 @@ export default class App extends React.Component {
                 {c.day}
                 <span className="mkrow">
                   {c.inti && <i className="mh">♥</i>}
+                  {c.preg && <i className="mhg">♥</i>}
                   {c.lhpk && <i className="mp"></i>}
                   {c.other && <i className="mn"></i>}
                 </span>
@@ -367,16 +389,20 @@ export default class App extends React.Component {
             <span><i className="li-ovu"></i>التبويض</span>
             <span><i className="li-pred"></i>متوقعة</span>
             <span><i style={{ background: 'var(--rose-d)', width: 8, height: 8, borderRadius: '50%' }}></i>جماع</span>
+            <span><i style={{ background: 'var(--fertile)', width: 8, height: 8, borderRadius: '50%' }}></i>حمل</span>
           </div>
         </div>
-        {v.hasSel && (
-          <div className="card" style={{ animation: 'pop .3s' }}>
-            <div className="hi" style={{ marginBottom: 4 }}>{v.sel.dateLabel}</div>
-            <div className={v.sel.phasePill}><span className="dot"></span>{v.sel.phaseLabel}</div>
-            <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.7, margin: '13px 0 14px' }}>{v.sel.summary}</p>
-            <button className="qbtn" onClick={v.sel.editDay}>تسجيل في هذا اليوم</button>
-          </div>
-        )}
+        <div className="card" style={{ animation: 'pop .3s' }}>
+          <div className="hi" style={{ marginBottom: 4 }}>{v.sel.isToday ? 'اليوم • ' : ''}{v.sel.dateLabel}</div>
+          <div className={v.sel.phasePill}><span className="dot"></span>{v.sel.phaseLabel}</div>
+          <p className="selsum">{v.sel.summary}</p>
+          <button className={v.sel.intiCls} onClick={v.sel.toggleInti} style={{ marginBottom: 13 }}>💞 جماع<span className="yn">{v.sel.intiTxt}</span></button>
+          <div className="lbl">🧪 اختبار التبويض</div>
+          <div className="opts" style={{ marginBottom: 13 }}>{v.sel.ovActs.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
+          <div className="lbl">🤍 اختبار الحمل</div>
+          <div className="opts" style={{ marginBottom: 15 }}>{v.sel.pregActs.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
+          <button className="qbtn" onClick={v.sel.editDay}>✏️ تفاصيل أكثر (أعراض، مزاج، حرارة، ملاحظات)</button>
+        </div>
       </div>
     )
   }
@@ -395,6 +421,10 @@ export default class App extends React.Component {
         <div className="card">
           <div className="lbl">🧪 اختبار التبويض</div>
           <div className="opts">{v.ovOpts.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
+        </div>
+        <div className="card">
+          <div className="lbl">🤍 اختبار الحمل</div>
+          <div className="opts">{v.pregOpts.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
         </div>
         <div className="card">
           <div className="lbl">🌡 درجة الحرارة الأساسية (BBT)</div>
