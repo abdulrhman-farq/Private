@@ -56,8 +56,9 @@ export default class App extends React.Component {
     this.syncFromCloud()
     // تحديث حيّ: استقطاب دوري + عند العودة للتطبيق، فيظهر تعديل الطرف الآخر تلقائيًا.
     this._poll = setInterval(() => this.pollCloud(), 15000)
-    this._onVis = () => { try { if (!document.hidden) this.pollCloud() } catch (e) { this.pollCloud() } }
+    this._onVis = () => { try { if (!document.hidden) { this.pollCloud(); this.maybeNotify() } } catch (e) { this.pollCloud() } }
     try { document.addEventListener('visibilitychange', this._onVis); window.addEventListener('focus', this._onVis) } catch (e) {}
+    setTimeout(() => this.maybeNotify(), 2600)
   }
   componentWillUnmount() {
     clearTimeout(this._t); clearTimeout(this._cloudT); clearInterval(this._poll); clearTimeout(this._toastT)
@@ -224,6 +225,74 @@ export default class App extends React.Component {
     }
     return { show: false }
   }
+  // (٢) تقدير يوم التبويض الفعلي من بيانات الدورة الحالية: اختبار LH أولًا، ثم ارتفاع الحرارة، وإلا التقويم.
+  ovulationEstimate() {
+    const c = this.calc(), L = c.L, last = c.last
+    let lhDay = null
+    for (let i = 0; i < L; i++) { const dt = this.addDays(last, i), lg = this.data.logs[this.iso(dt)]; if (lg && lg.ovTest === 'إيجابي') lhDay = dt }
+    if (lhDay) return { date: this.addDays(lhDay, 1), source: 'lh' }
+    const temps = []
+    for (let i = 0; i < L; i++) { const lg = this.data.logs[this.iso(this.addDays(last, i))]; temps.push(lg && lg.bbt ? +lg.bbt : null) }
+    for (let i = 6; i < L; i++) {
+      if (temps[i] == null) continue
+      const prev = temps.slice(Math.max(0, i - 6), i).filter(x => x != null)
+      if (prev.length >= 3) { const avg = prev.reduce((a, b) => a + b, 0) / prev.length; if (temps[i] >= avg + 0.2) return { date: this.addDays(last, i - 1), source: 'bbt' } }
+    }
+    return { date: c.ovu, source: 'calc' }
+  }
+  // (٣) احتمال الحمل ليوم معيّن (٪) بناءً على قربه من التبويض المقدّر — منحنى خصوبة تقريبي معروف.
+  conceptionPct(date) {
+    const ov = this.ovulationEstimate().date, d = this.diff(ov, date)
+    const m = { '5': 4, '4': 10, '3': 16, '2': 27, '1': 31, '0': 26, '-1': 8 }
+    if (m[String(d)] != null) return m[String(d)]
+    return 0
+  }
+  // (٤) وضع متابعة الحمل
+  pregActive() { return !!(this.data.pregnancy && this.data.pregnancy.active) }
+  setPregnancy(on) {
+    const p = on ? { active: true, lmp: this.data.settings.lastPeriod } : { active: false }
+    this.hap(); this.save({ ...this.data, pregnancy: p })
+  }
+  pregView() {
+    const p = this.data.pregnancy || {}, lmp = this.parse(p.lmp || this.data.settings.lastPeriod), today = new Date()
+    let days = this.diff(today, lmp); if (days < 0) days = 0
+    const wk = Math.floor(days / 7), dd = days % 7
+    const edd = this.addDays(lmp, 280), toEdd = this.diff(edd, today)
+    const tri = wk < 13 ? 'الثلث الأول' : wk < 28 ? 'الثلث الثاني' : 'الثلث الثالث'
+    const pct = Math.max(0, Math.min(100, Math.round((days / 280) * 100)))
+    const milestones = ['🫘 بحجم حبة الفاصولياء', '🍇 بحجم حبة العنب', '🍓 بحجم الفراولة', '🍋 بحجم الليمونة', '🥑 بحجم الأفوكادو', '🌽 بحجم الذرة', '🥕 بحجم الجزرة', '🥦 بحجم القرنبيط', '🥬 بحجم الخس', '🍍 بحجم الأناناس', '🎃 بحجم اليقطين']
+    const mi = Math.min(milestones.length - 1, Math.max(0, Math.floor((wk - 6) / 3)))
+    return { wk, dd, eddLabel: this.arShort(edd), toEdd: Math.max(0, toEdd), tri, pct, milestone: wk >= 5 ? milestones[mi] : '🤍 بداية الرحلة', lmpLabel: this.arShort(lmp) }
+  }
+  // (١) تنبيهات: عرض إشعار لأحداث اليوم المهمة (عند فتح/تنشيط التطبيق).
+  notifyEnabled() { try { return typeof Notification !== 'undefined' && Notification.permission === 'granted' } catch (e) { return false } }
+  requestNotif() {
+    try {
+      if (typeof Notification === 'undefined') { if (typeof alert === 'function') alert('جهازك لا يدعم التنبيهات. للحصول عليها على الآيفون، ثبّتي التطبيق على الشاشة الرئيسية أولًا.'); return }
+      Notification.requestPermission().then(() => { this.setState({ tick: this.state.tick + 1 }); this.maybeNotify() })
+    } catch (e) {}
+  }
+  pushNote(title, body) {
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.ready) { navigator.serviceWorker.ready.then(reg => reg.showNotification(title, { body, icon: './icon-192.png', badge: './icon-192.png' })).catch(() => { try { new Notification(title, { body }) } catch (e) {} }) }
+      else new Notification(title, { body })
+    } catch (e) {}
+  }
+  maybeNotify() {
+    if (!this.notifyEnabled() || this.pregActive()) return
+    const today = new Date(), tISO = this.iso(today), c = this.calc(), ov = this.ovulationEstimate().date
+    const events = []
+    if (this.diff(ov, today) === 0) events.push(['ovu', 'يوم التبويض اليوم 🌸', 'أعلى فرص الحمل اليوم — التوقيت مثالي.'])
+    else if (this.chanceLevel(today) >= 3) events.push(['best', 'من أفضل أيام الجماع 💞', 'أنتِ في ذروة الخصوبة — لا تفوّتي اليوم.'])
+    if (this.diff(c.fS, today) === 0) events.push(['fertile', 'بدأت نافذة الخصوبة 🌱', 'ابدأ أيام الخصوبة المرتفعة.'])
+    if (this.diff(c.next, today) === 0) events.push(['period', 'موعد الدورة المتوقّع اليوم 📅', 'إن لم تأتِ، يمكنكِ إجراء اختبار حمل.'])
+    if (this.data.settings.reminders && this.data.settings.reminders.test && this.diff(ov, today) === 1) events.push(['test', 'ذكّري نفسك باختبار التبويض 🧪', 'التبويض غدًا تقريبًا — اختبار اليوم مفيد.'])
+    for (const [type, title, body] of events) {
+      const k = 'rweida_n_' + tISO + '_' + type
+      let done = false; try { done = localStorage.getItem(k) === '1' } catch (e) {}
+      if (!done) { this.pushNote(title, body); try { localStorage.setItem(k, '1') } catch (e) {} }
+    }
+  }
   smartTips() {
     const tips = [], today = new Date(), tISO = this.iso(today)
     // اختبار تبويض إيجابي خلال آخر يومين → التبويض وشيك.
@@ -282,10 +351,13 @@ export default class App extends React.Component {
     else { const d = c.dto; title = 'باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على التبويض'; desc = 'أنتِ خارج نافذة الخصوبة حاليًا.'; chance = 'منخفضة' }
     const pct = Math.round((c.cycleDay / c.L) * 100), ang = pct * 3.6
     const ringStyle = 'conic-gradient(' + cvar[ph] + ' ' + pct + '%, var(--track) 0)'
+    const ovE = this.ovulationEstimate()
+    const srcTxt = ovE.source === 'lh' ? 'حسب اختبار التبويض' : ovE.source === 'bbt' ? 'حسب ارتفاع الحرارة' : 'حسب التقويم'
     return {
       greeting: 'أهلاً، ' + this.data.settings.wife, todayLabel: this.arLong(c.today),
       cycleDay: c.cycleDay, phaseLabel: lab[ph], phasePill: 'pill ' + pmap[ph], ringStyle, ang,
-      statusTitle: title, statusDesc: desc, chanceLabel: chance,
+      statusTitle: title, statusDesc: desc, chanceLabel: chance, chancePct: this.conceptionPct(c.today),
+      ovEstLabel: this.arShort(ovE.date), ovEstSmart: ovE.source !== 'calc', ovEstSrc: srcTxt,
       ovuDateLabel: this.arShort(c.ovu), nextDateLabel: this.arShort(c.next),
       fertileRange: this.arShort(c.fS) + ' — ' + this.arShort(c.fE),
       cdOvu: Math.max(0, c.dto), cdFertile: Math.max(0, this.diff(c.fS, c.today)), cdPeriod: Math.max(0, c.dtp),
@@ -401,6 +473,8 @@ export default class App extends React.Component {
       pickHusband: () => this.setIdentity('husband'), pickWife: () => this.setIdentity('wife'),
       husbandName: s.husband, wifeName: s.wife,
       lastEdit: (() => { const e = this.data.editedBy; if (!e) return ''; const v = this.identityView(e); return v.emoji + ' ' + v.name })(),
+      notifOn: this.notifyEnabled(), enableNotif: () => this.requestNotif(),
+      pregOn: this.pregActive(), togglePreg: () => this.setPregnancy(!this.pregActive()),
     }
   }
 
@@ -447,6 +521,7 @@ export default class App extends React.Component {
   }
 
   renderHome(g) {
+    if (this.pregActive()) return this.renderPregnancy(g)
     const v = this.rvHome()
     return (
       <div className="screen">
@@ -473,7 +548,10 @@ export default class App extends React.Component {
           </div>
         )}
         {v.pregAlert.show && (
-          <div className="alert good"><div className="ae">🎉</div><div><div className="at">مبروك!</div><div className="ax">{v.pregAlert.msg}</div></div></div>
+          <div className="card" style={{ animation: 'pop .3s' }}>
+            <div className="alert good" style={{ marginBottom: 13 }}><div className="ae">🎉</div><div><div className="at">مبروك!</div><div className="ax">{v.pregAlert.msg}</div></div></div>
+            <button className="qbtn" onClick={() => this.setPregnancy(true)}>🤰 تفعيل وضع متابعة الحمل</button>
+          </div>
         )}
         {v.lateAlert.show && (
           <div className="alert"><div className="ae">🤍</div><div><div className="at">قد يكون موعد اختبار الحمل</div><div className="ax">{v.lateAlert.msg}</div></div></div>
@@ -499,7 +577,8 @@ export default class App extends React.Component {
           </div>
           <div className="status">
             <h2>{v.statusTitle}</h2><p>{v.statusDesc}</p>
-            <div className="chance">احتمالية الحمل اليوم: <b>{v.chanceLabel}</b></div>
+            <div className="chance">احتمالية الحمل اليوم: <b>{v.chancePct}%</b> · {v.chanceLabel}</div>
+            {v.ovEstSmart && <div className="chance" style={{ marginTop: 6, color: 'var(--fertile)' }}>🎯 التبويض المُقدّر من بياناتك: <b>{v.ovEstLabel}</b> ({v.ovEstSrc})</div>}
           </div>
         </div>
         <div className="ttl">العد التنازلي</div>
@@ -528,6 +607,45 @@ export default class App extends React.Component {
           <div className="tip"><div className="te">💡</div><div><div className="tt">نصيحة اليوم</div><div className="tx">{v.dailyTip}</div></div></div>
         </div>
         <button className="qbtn" onClick={g.goLog}>＋ تسجيل اليوم</button>
+      </div>
+    )
+  }
+
+  renderPregnancy(g) {
+    const v = this.pregView()
+    return (
+      <div className="screen">
+        <div className="hd">
+          <div><div className="hi">وضع متابعة الحمل 🤰</div><h1 className="nm">مبروك {this.data.settings.wife} 🤍</h1></div>
+          <button className="tbtn" onClick={g.goSettings}>⚙</button>
+        </div>
+        <div className="card">
+          <div className="ringwrap">
+            <div className="ring" style={{ background: 'conic-gradient(var(--fertile) ' + v.pct + '%, var(--track) 0)' }}>
+              <div className="rin"><div className="cd">{v.wk}</div><div className="cdl">أسبوع {v.dd > 0 ? '+' + v.dd + ' يوم' : ''}</div></div>
+            </div>
+            <div className="pill p-fertile" style={{ marginTop: 14 }}><span className="dot"></span>{v.tri}</div>
+          </div>
+          <div className="status">
+            <h2>{v.milestone}</h2>
+            <p>طفلكِ ينمو يومًا بعد يوم — اعتني بنفسكِ وتغذيتكِ. 🤍</p>
+          </div>
+        </div>
+        <div className="cd3">
+          <div className="cdc f"><div className="cv">{v.wk}</div><div className="cu">أسبوع</div><div className="ck">عمر الحمل</div></div>
+          <div className="cdc o"><div className="cv">{v.toEdd}</div><div className="cu">يوم</div><div className="ck">على الولادة</div></div>
+          <div className="cdc"><div className="cv">{40 - v.wk > 0 ? 40 - v.wk : 0}</div><div className="cu">أسبوع</div><div className="ck">متبقٍّ تقريبًا</div></div>
+        </div>
+        <div className="card">
+          <div className="ttl">تفاصيل الحمل</div>
+          <div className="info">
+            <div className="irow"><div className="ib bo">📅</div><div><div className="it">موعد الولادة المتوقّع</div><div className="iv">{v.eddLabel}</div></div></div>
+            <div className="irow"><div className="ib bf">🌱</div><div><div className="it">بداية آخر دورة (LMP)</div><div className="iv">{v.lmpLabel}</div></div></div>
+            <div className="irow"><div className="ib bp">🤰</div><div><div className="it">المرحلة</div><div className="iv">{v.tri} — {v.pct}%</div></div></div>
+          </div>
+        </div>
+        <div className="note">🤍 <div>التواريخ تقديرية بناءً على تاريخ آخر دورة. للمتابعة الدقيقة راجعي طبيبتكِ المختصة.</div></div>
+        <button className="danger" onClick={() => { if (typeof confirm !== 'function' || confirm('إيقاف وضع متابعة الحمل والعودة لتتبّع الدورة؟')) this.setPregnancy(false) }}>إيقاف وضع الحمل</button>
       </div>
     )
   }
@@ -701,12 +819,20 @@ export default class App extends React.Component {
         </div>
         <div className="card">
           <div className="ttl">التذكيرات</div>
+          <div className="srow">
+            <div className="sl"><div className="si2">🔔</div>تنبيهات الجهاز</div>
+            {v.notifOn ? <span style={{ fontSize: 12, color: 'var(--fertile)', fontWeight: 700 }}>مفعّلة ✓</span> : <button className="opt" style={{ flex: '0 0 auto', padding: '9px 16px' }} onClick={v.enableNotif}>تفعيل</button>}
+          </div>
           {v.remOpts.map(r => (
             <div key={r.key} className="srow">
               <div className="sl"><div className="si2">{r.ic}</div>{r.label}</div>
               <button className={r.cls} onClick={r.onClick}></button>
             </div>
           ))}
+        </div>
+        <div className="card">
+          <div className="ttl">وضع متابعة الحمل 🤰</div>
+          <div className="srow"><div className="sl"><div className="si2">🤰</div>{v.pregOn ? 'مفعّل — متابعة الحمل' : 'تفعيل عند ثبوت الحمل'}</div><button className={'sw' + (v.pregOn ? ' on' : '')} onClick={v.togglePreg}></button></div>
         </div>
         <div className="card">
           <div className="ttl">المظهر</div>

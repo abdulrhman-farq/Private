@@ -1,7 +1,7 @@
 // خدمة العمل دون اتصال — أيام تبويض رويدا
 // Network-first for the app shell (so deployments reach users immediately),
 // stale-while-revalidate for hashed JS/CSS assets (immutable, safe to cache).
-const CACHE = 'rweida-v3';
+const CACHE = 'rweida-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -22,6 +22,24 @@ self.addEventListener('activate', (e) => {
       Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
+});
+
+// فتح/تركيز التطبيق عند الضغط على التنبيه.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) { if ('focus' in c) return c.focus(); }
+      if (self.clients.openWindow) return self.clients.openWindow('./');
+    })
+  );
+});
+
+// دعم Web Push المستقبلي (إن أُرسل إشعار من الخادم).
+self.addEventListener('push', (e) => {
+  let d = { title: 'أيام تبويض رويدا', body: '' };
+  try { if (e.data) d = Object.assign(d, e.data.json()); } catch (x) {}
+  e.waitUntil(self.registration.showNotification(d.title, { body: d.body, icon: './icon-192.png', badge: './icon-192.png' }));
 });
 
 self.addEventListener('fetch', (e) => {
