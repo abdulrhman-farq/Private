@@ -1,22 +1,22 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;background:#100b13}
-#root{min-height:100vh}
-.app{direction:rtl;font-family:'IBM Plex Sans Arabic',sans-serif;color:var(--ink);min-height:100vh;width:100%;display:flex;justify-content:center;--bg:#F6EEE9;--bg2:#fff;--ink:#2B1F27;--ink2:#806B75;--line:#EEE0D9;--card:#fff;--rose:#E0698A;--rose-d:#C24E72;--rose-s:#FBE3EA;--fertile:#3FAE92;--fertile-s:#DCF0EA;--ovu:#D79A36;--ovu-s:#F7ECD4;--pred:#CDBDC6;--track:#EFE4DE;--shadow:0 10px 34px rgba(150,70,95,.13);--shadow-s:0 4px 14px rgba(150,70,95,.10);--grad:linear-gradient(140deg,#E0698A,#C24E72)}
+#root{min-height:100vh;min-height:100dvh}
+.app{direction:rtl;font-family:'IBM Plex Sans Arabic',sans-serif;color:var(--ink);min-height:100vh;min-height:100dvh;width:100%;display:flex;justify-content:center;--bg:#F6EEE9;--bg2:#fff;--ink:#2B1F27;--ink2:#806B75;--line:#EEE0D9;--card:#fff;--rose:#E0698A;--rose-d:#C24E72;--rose-s:#FBE3EA;--fertile:#3FAE92;--fertile-s:#DCF0EA;--ovu:#D79A36;--ovu-s:#F7ECD4;--pred:#CDBDC6;--track:#EFE4DE;--shadow:0 10px 34px rgba(150,70,95,.13);--shadow-s:0 4px 14px rgba(150,70,95,.10);--grad:linear-gradient(140deg,#E0698A,#C24E72)}
 .app.dark{--bg:#15101A;--bg2:#1E1722;--ink:#F4EAF0;--ink2:#A892A0;--line:#322637;--card:#1F1726;--rose:#EC7A99;--rose-d:#F08FA8;--rose-s:#3A2330;--fertile:#4BC2A4;--fertile-s:#17302A;--ovu:#E6B254;--ovu-s:#33290F;--pred:#5A4A56;--track:#2B2030;--shadow:0 14px 38px rgba(0,0,0,.55);--shadow-s:0 6px 18px rgba(0,0,0,.45);--grad:linear-gradient(140deg,#EC7A99,#C24E72)}
-.phone{position:relative;width:100%;max-width:452px;min-height:100vh;background:var(--bg);overflow:hidden;display:flex;flex-direction:column;transition:background .5s}
+.phone{position:relative;width:100%;max-width:452px;min-height:100vh;min-height:100dvh;background:var(--bg);overflow:hidden;display:flex;flex-direction:column;transition:background .5s}
 @media(min-width:520px){.phone{min-height:auto;height:920px;margin:auto;border-radius:42px;box-shadow:0 40px 90px rgba(0,0,0,.5),0 0 0 11px #0c080e,0 0 0 13px #241a26}.app{align-items:center;padding:26px 0;background:radial-gradient(120% 90% at 50% 0%,#241a26,#0d0a10)}}
 .amb{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
 .amb i{position:absolute;border-radius:50%;filter:blur(48px);opacity:.5}
 .amb i:nth-child(1){width:230px;height:230px;background:var(--rose-s);top:-60px;left:-50px}
 .amb i:nth-child(2){width:200px;height:200px;background:var(--fertile-s);bottom:120px;right:-70px;opacity:.4}
-.scroll{position:relative;z-index:1;flex:1;overflow-y:auto;overflow-x:hidden;padding:0 18px 120px}
+.scroll{position:relative;z-index:1;flex:1;overflow-y:auto;overflow-x:hidden;padding:0 18px calc(120px + env(safe-area-inset-bottom,0px))}
 .scroll::-webkit-scrollbar{display:none}
 .screen{animation:scin .42s cubic-bezier(.22,1,.36,1)}
 @keyframes scin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .card{background:var(--card);border-radius:24px;box-shadow:var(--shadow);padding:20px;margin-bottom:15px}
-.nav{position:absolute;z-index:5;bottom:0;left:0;right:0;height:84px;background:var(--card);border-top:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-around;padding:11px 8px 0;box-shadow:0 -8px 24px rgba(0,0,0,.06)}
+.nav{position:absolute;z-index:5;bottom:0;left:0;right:0;min-height:84px;background:var(--card);border-top:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-around;padding:11px 8px env(safe-area-inset-bottom,0px);box-shadow:0 -8px 24px rgba(0,0,0,.06)}
 .nav button{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink2);font-family:inherit;font-size:10.5px;font-weight:600;padding:4px 9px;transition:color .2s}
 .nav button .ic{font-size:20px;line-height:1;transition:transform .2s}
 .nav button.on{color:var(--rose-d)}
