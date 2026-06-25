@@ -1,5 +1,5 @@
 import React from 'react'
-import { cloudLoad, cloudSave, pushSubscribe, addCustomMessage, listCustomMessages, deleteCustomMessage, SHARED_KEY, VAPID_PUBLIC } from './supabase.js'
+import { cloudLoad, cloudSave, pushSubscribe, addCustomMessage, listCustomMessages, deleteCustomMessage, sendNow, SHARED_KEY, VAPID_PUBLIC } from './supabase.js'
 
 // أيام تبويض رويدا — faithful React port of the Claude Design prototype.
 // All cycle math, seeding and localStorage persistence mirror the original 1:1.
@@ -58,13 +58,17 @@ export default class App extends React.Component {
     if (!lines.length) { if (typeof alert === 'function') alert('اكتبي رسالة أولًا.'); return }
     const target = this.state.cmTarget || 'wife'
     const once = this.state.cmMode === 'once'
+    const nowMode = once && this.state.cmWhen === 'now'
     const times = once ? 1 : Math.max(1, Math.min(200, parseInt(this.state.cmTimes) || 1))
     const days = once ? 1 : Math.max(1, Math.min(60, parseInt(this.state.cmDays) || 1))
     const atHour = (once && this.state.cmWhen === 'hour') ? Math.max(0, Math.min(23, parseInt(this.state.cmHour) || 0)) : null
     this.hap()
-    Promise.all(lines.map(t => addCustomMessage(this.syncKey, t, times, days, target, this.state.cmMode, atHour))).then(() => {
+    const task = nowMode
+      ? Promise.all(lines.map(t => sendNow(this.syncKey, t, target)))
+      : Promise.all(lines.map(t => addCustomMessage(this.syncKey, t, times, days, target, this.state.cmMode, atHour)))
+    task.then(() => {
       this.setState({ cmText: '' })
-      this.showToast(once ? (atHour !== null ? '✅ ستُرسل عند الساعة ' + atHour : '✅ ستُرسل خلال دقائق') : '✅ تمت الإضافة وستبدأ بالإرسال')
+      this.showToast(nowMode ? '✅ أُرسلت الآن' : (atHour !== null ? '✅ ستُرسل عند الساعة ' + atHour : '✅ تمت الإضافة وستبدأ بالإرسال'))
       this.loadCustoms()
     })
   }
