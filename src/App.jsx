@@ -19,6 +19,7 @@ export default class App extends React.Component {
       tick: 0,
       syncing: false,
       syncedAt: 0,
+      syncError: false,
       linkCode: '',
     }
   }
@@ -47,19 +48,20 @@ export default class App extends React.Component {
     const remote = await cloudLoad(this.syncKey)
     if (remote && remote.settings) {
       const rt = remote.updatedAt || '', lt = this.data.updatedAt || ''
-      if (rt > lt) { this.persist(remote); this.setState({ tick: this.state.tick + 1, syncing: false, syncedAt: Date.now() }); return }
-      if (lt > rt) await cloudSave(this.syncKey, this.data)
+      if (rt > lt) { this.persist(remote); this.setState({ tick: this.state.tick + 1, syncing: false, syncError: false, syncedAt: Date.now() }); return }
+      if (lt > rt) { const ok = await cloudSave(this.syncKey, this.data); this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt }); return }
     } else {
-      await cloudSave(this.syncKey, this.data)
+      const ok = await cloudSave(this.syncKey, this.data)
+      this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt }); return
     }
-    this.setState({ syncing: false, syncedAt: Date.now() })
+    this.setState({ syncing: false, syncError: false, syncedAt: Date.now() })
   }
   scheduleCloud() {
     clearTimeout(this._cloudT)
     this.setState({ syncing: true })
     this._cloudT = setTimeout(async () => {
       const ok = await cloudSave(this.syncKey, this.data)
-      this.setState({ syncing: false, syncedAt: ok ? Date.now() : this.state.syncedAt })
+      this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt })
     }, 800)
   }
   applySyncKey(k) {
@@ -216,7 +218,14 @@ export default class App extends React.Component {
       navHomeCls: nc('home'), navCalCls: nc('calendar'), navStatsCls: nc('stats'), navSetCls: nc('settings'),
       dismissSplash: () => this.setState({ screen: 'home' }),
       goHome: () => this.go('home'), goCalendar: () => this.go('calendar'), goLog: () => this.go('log'), goStats: () => this.go('stats'), goSettings: () => this.go('settings'),
+      sync: this.syncView(),
     }
+  }
+  syncView() {
+    if (this.state.syncing) return { cls: 'syncing', icon: '☁', text: 'يحفظ…' }
+    if (this.state.syncError) return { cls: 'err', icon: '⚠', text: 'غير متصل' }
+    if (this.state.syncedAt) return { cls: 'ok', icon: '☁', text: 'محفوظ' }
+    return { cls: '', icon: '☁', text: 'المزامنة' }
   }
   rvHome() {
     const c = this.calc(), ph = this.phaseOf(c.today)
@@ -343,7 +352,7 @@ export default class App extends React.Component {
       remOpts: rem, themeCls: 'sw' + (s.theme === 'dark' ? ' on' : ''), onTheme: () => this.toggleTheme(),
       themeLabel: s.theme === 'dark' ? 'الوضع الداكن' : 'الوضع الفاتح', resetData: () => this.resetAll(),
       syncKey: this.syncKey,
-      syncStatus: this.state.syncing ? 'جارٍ الحفظ…' : (this.state.syncedAt ? 'محفوظ ☁️ ' + new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { hour: 'numeric', minute: 'numeric' }).format(new Date(this.state.syncedAt)) : 'بانتظار المزامنة'),
+      syncStatus: this.state.syncing ? 'جارٍ الحفظ…' : this.state.syncError ? '⚠️ غير متصل — سيُحفظ عند عودة الاتصال' : (this.state.syncedAt ? 'محفوظ ☁️ ' + new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { hour: 'numeric', minute: 'numeric' }).format(new Date(this.state.syncedAt)) : 'بانتظار المزامنة'),
       copySync: () => { try { navigator.clipboard && navigator.clipboard.writeText(this.syncKey); this.hap() } catch (e) {} },
       linkCode: this.state.linkCode, onLinkInput: e => this.setState({ linkCode: e.target.value }),
       applyLink: () => this.applySyncKey(this.state.linkCode),
@@ -363,6 +372,11 @@ export default class App extends React.Component {
               <p>رفيقكِ اليومي لمتابعة الخصوبة</p>
               <div className="ld"><i></i><i></i><i></i></div>
             </div>
+          )}
+          {g.showNav && (
+            <button className={'syncbadge ' + g.sync.cls} onClick={g.goSettings} title="حالة المزامنة">
+              <span className="si">{g.sync.icon}</span>{g.sync.text}
+            </button>
           )}
           <div className="scroll">
             {g.isHome && this.renderHome(g)}
