@@ -12,6 +12,17 @@ export const supa = createClient(SUPABASE_URL, SUPABASE_KEY, {
 // مجموعة بيانات مشتركة واحدة: كل من يفتح الرابط يرى ويحدّث نفس البيانات.
 export const SHARED_KEY = 'rweida-shared-9b7e2f4a1c8d6e30'
 
+// مفتاح VAPID العام (آمن للنشر) — يُستخدم للاشتراك في الدفع.
+export const VAPID_PUBLIC = 'BPHIn_6ARUJhuquRNWFJIP3oiTQ2vNZxONHks4Lhg97iHG8JoOiXD29NhNoPh0xWkD6ekWJmtWRs3RMsiW-QYqE'
+
+// تسجيل اشتراك الدفع في الخادم.
+export async function pushSubscribe(key, identity, sub) {
+  try {
+    const { error } = await supa.rpc('push_subscribe', { p_key: key, p_identity: identity || '', p_endpoint: sub.endpoint, p_p256dh: sub.p256dh, p_auth: sub.auth })
+    return !error
+  } catch (e) { return false }
+}
+
 // تحميل بيانات رمز المزامنة من السحابة (أو null إن لم توجد / عند الخطأ).
 export async function cloudLoad(key) {
   try {

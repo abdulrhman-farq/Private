@@ -1,5 +1,5 @@
 import React from 'react'
-import { cloudLoad, cloudSave, SHARED_KEY } from './supabase.js'
+import { cloudLoad, cloudSave, pushSubscribe, SHARED_KEY, VAPID_PUBLIC } from './supabase.js'
 
 // أيام تبويض رويدا — faithful React port of the Claude Design prototype.
 // All cycle math, seeding and localStorage persistence mirror the original 1:1.
@@ -59,6 +59,7 @@ export default class App extends React.Component {
     this._onVis = () => { try { if (!document.hidden) { this.pollCloud(); this.maybeNotify() } } catch (e) { this.pollCloud() } }
     try { document.addEventListener('visibilitychange', this._onVis); window.addEventListener('focus', this._onVis) } catch (e) {}
     setTimeout(() => this.maybeNotify(), 2600)
+    if (this.notifyEnabled()) this.enablePush()
   }
   componentWillUnmount() {
     clearTimeout(this._t); clearTimeout(this._cloudT); clearInterval(this._poll); clearTimeout(this._toastT)
@@ -268,9 +269,31 @@ export default class App extends React.Component {
   notifyEnabled() { try { return typeof Notification !== 'undefined' && Notification.permission === 'granted' } catch (e) { return false } }
   requestNotif() {
     try {
-      if (typeof Notification === 'undefined') { if (typeof alert === 'function') alert('جهازك لا يدعم التنبيهات. للحصول عليها على الآيفون، ثبّتي التطبيق على الشاشة الرئيسية أولًا.'); return }
-      Notification.requestPermission().then(() => { this.setState({ tick: this.state.tick + 1 }); this.maybeNotify() })
+      if (typeof Notification === 'undefined') { if (typeof alert === 'function') alert('جهازك لا يدعم التنبيهات. على الآيفون: ثبّتي التطبيق على الشاشة الرئيسية أولًا، ثم فعّلي التنبيهات.'); return }
+      Notification.requestPermission().then((perm) => {
+        this.setState({ tick: this.state.tick + 1 })
+        if (perm === 'granted') { this.enablePush(); this.maybeNotify() }
+      })
     } catch (e) {}
+  }
+  urlB64ToUint8(s) {
+    const pad = '='.repeat((4 - s.length % 4) % 4)
+    const b = (s + pad).replace(/-/g, '+').replace(/_/g, '/')
+    const raw = atob(b), arr = new Uint8Array(raw.length)
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i)
+    return arr
+  }
+  async enablePush() {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false
+      const reg = await navigator.serviceWorker.ready
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: this.urlB64ToUint8(VAPID_PUBLIC) })
+      const j = sub.toJSON()
+      const ok = await pushSubscribe(this.syncKey, this.identity, { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth })
+      if (ok) this.showToast('🔔 تم تفعيل التنبيهات على هذا الجهاز')
+      return ok
+    } catch (e) { return false }
   }
   pushNote(title, body) {
     try {
