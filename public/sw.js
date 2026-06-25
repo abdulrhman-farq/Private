@@ -1,7 +1,7 @@
 // خدمة العمل دون اتصال — أيام تبويض رويدا
 // Network-first for the app shell (so deployments reach users immediately),
 // stale-while-revalidate for hashed JS/CSS assets (immutable, safe to cache).
-const CACHE = 'rweida-v4';
+const CACHE = 'rweida-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -24,22 +24,25 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// فتح/تركيز التطبيق عند الضغط على التنبيه.
+// عند الضغط على الإشعار: افتح التطبيق واعرض الرسالة كاملة.
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const c of list) { if ('focus' in c) return c.focus(); }
-      if (self.clients.openWindow) return self.clients.openWindow('./');
-    })
-  );
+  const title = e.notification.title || '';
+  const body = e.notification.body || '';
+  e.waitUntil((async () => {
+    const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of list) {
+      if ('focus' in c) { await c.focus(); c.postMessage({ type: 'rweida-notif', title: title, body: body }); return; }
+    }
+    if (self.clients.openWindow) await self.clients.openWindow('./?n=' + encodeURIComponent(body) + '&nt=' + encodeURIComponent(title));
+  })());
 });
 
-// دعم Web Push المستقبلي (إن أُرسل إشعار من الخادم).
+// عرض الإشعار القادم من الخادم.
 self.addEventListener('push', (e) => {
   let d = { title: 'أيام تبويض رويدا', body: '' };
   try { if (e.data) d = Object.assign(d, e.data.json()); } catch (x) {}
-  e.waitUntil(self.registration.showNotification(d.title, { body: d.body, icon: './icon-192.png', badge: './icon-192.png' }));
+  e.waitUntil(self.registration.showNotification(d.title, { body: d.body, icon: './icon-192.png', badge: './icon-192.png', dir: 'rtl', lang: 'ar', data: d }));
 });
 
 self.addEventListener('fetch', (e) => {

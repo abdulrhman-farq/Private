@@ -23,6 +23,7 @@ export default class App extends React.Component {
       syncedAt: 0,
       syncError: false,
       toast: '',
+      notifMsg: null,
       customs: [],
       cmText: '', cmTimes: 5, cmDays: 1, cmTarget: 'wife',
       cmMode: 'spread', cmWhen: 'now', cmHour: 9,
@@ -86,6 +87,17 @@ export default class App extends React.Component {
     setTimeout(() => this.maybeNotify(), 2600)
     if (this.notifyEnabled()) this.enablePush()
     this.loadCustoms()
+    // عند فتح التطبيق من إشعار: اعرض الرسالة كاملة.
+    try {
+      const q = new URLSearchParams(window.location.search)
+      const n = q.get('n')
+      if (n) { this.setState({ notifMsg: { title: q.get('nt') || '', body: n } }); window.history.replaceState(null, '', window.location.pathname) }
+    } catch (e) {}
+    try {
+      if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', (ev) => {
+        if (ev.data && ev.data.type === 'rweida-notif') this.setState({ notifMsg: { title: ev.data.title || '', body: ev.data.body || '' } })
+      })
+    } catch (e) {}
   }
   componentWillUnmount() {
     clearTimeout(this._t); clearTimeout(this._cloudT); clearInterval(this._poll); clearTimeout(this._toastT)
@@ -569,6 +581,16 @@ export default class App extends React.Component {
             </div>
           )}
           {this.state.toast && <div className="toast">{this.state.toast}</div>}
+          {this.state.notifMsg && (
+            <div className="modal" onClick={() => this.setState({ notifMsg: null })}>
+              <div className="modalcard" onClick={e => e.stopPropagation()}>
+                <div className="modale">💌</div>
+                {this.state.notifMsg.title && <div className="modalt">{this.state.notifMsg.title}</div>}
+                <div className="modalb">{this.state.notifMsg.body}</div>
+                <button className="qbtn" onClick={() => this.setState({ notifMsg: null })}>إغلاق</button>
+              </div>
+            </div>
+          )}
           <div className="scroll">
             {g.isHome && this.renderHome(g)}
             {g.isCal && this.renderCalendar()}
