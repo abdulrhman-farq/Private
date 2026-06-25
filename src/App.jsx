@@ -31,16 +31,19 @@ export default class App extends React.Component {
   load() {
     let d = null
     try { d = JSON.parse(localStorage.getItem('rweida_v1')) } catch (e) {}
-    if (!d || !d.settings) { d = this.seed(); this.persist(d) }
+    // أي بيانات قديمة/تجريبية (بدون رقم الإصدار الحالي) تُمسح مرة واحدة لبداية نظيفة.
+    if (!d || !d.settings || d.v !== 3) { d = this.seed(); this.persist(d) }
     this.data = d
   }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
   save(d) { this.persist(d); this.setState({ tick: this.state.tick + 1 }) }
   seed() {
-    // بيانات رويدا الفعلية: آخر دورتين ٢٧ مايو ثم ٢٣ يونيو ٢٠٢٦ → طول الدورة ٢٧ يومًا.
+    // بداية نظيفة بلا أي بيانات تجريبية. نقطة انطلاق واقعية (آخر دورة ٢٣ يونيو، طول ٢٧ يومًا)
+    // قابلة للتعديل بالكامل من الإعدادات، والسجل يُبنى من تأكيد بدء كل دورة.
     return {
+      v: 3,
       settings: { lastPeriod: '2026-06-23', cycleLength: 27, periodLength: 5, theme: 'light', wife: 'رويدا', husband: 'عبدالرحمن', reminders: { fertile: true, ovulation: true, period: true, test: false } },
-      history: [27],
+      history: [],
       logs: {},
     }
   }
@@ -74,6 +77,21 @@ export default class App extends React.Component {
   bumpCycle(n) { const s = { ...this.data.settings }; s.cycleLength = Math.max(21, Math.min(40, s.cycleLength + n)); this.save({ ...this.data, settings: s }) }
   bumpPeriod(n) { const s = { ...this.data.settings }; s.periodLength = Math.max(2, Math.min(10, s.periodLength + n)); this.save({ ...this.data, settings: s }) }
   setLast(v) { if (!v) return; const s = { ...this.data.settings, lastPeriod: v }; this.save({ ...this.data, settings: s }) }
+  // تأكيد بدء الدورة فعليًا: يسجّل طول الدورة المنتهية، يحدّث تاريخ آخر دورة،
+  // ويعيد ضبط متوسط طول الدورة ليُحسب التبويض بدقة من البيانات الحقيقية.
+  confirmPeriod(startISO) {
+    if (!startISO) return
+    const s = this.data.settings
+    const len = this.diff(this.parse(startISO), this.parse(s.lastPeriod))
+    let hist = Array.isArray(this.data.history) ? [...this.data.history] : []
+    if (len >= 15 && len <= 60) { hist.push(len); if (hist.length > 12) hist = hist.slice(hist.length - 12) }
+    const avg = hist.length ? Math.round(hist.reduce((a, b) => a + b, 0) / hist.length) : s.cycleLength
+    const cycleLength = Math.max(21, Math.min(40, avg))
+    const day = this.data.logs[startISO] || this.emptyLog()
+    const logs = { ...this.data.logs, [startISO]: { ...day, flow: day.flow || 'متوسط' } }
+    this.hap()
+    this.save({ ...this.data, settings: { ...s, lastPeriod: startISO, cycleLength }, history: hist, logs })
+  }
   toggleTheme() { const s = { ...this.data.settings, theme: this.data.settings.theme === 'dark' ? 'light' : 'dark' }; this.hap(); this.save({ ...this.data, settings: s }) }
   toggleRem(k) { const r = { ...this.data.settings.reminders }; r[k] = !r[k]; this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, reminders: r } }) }
   resetAll() { if (typeof confirm === 'function' && !confirm('سيتم حذف جميع البيانات. متابعة؟')) return; localStorage.removeItem('rweida_v1'); const d = this.seed(); this.persist(d); this.setState({ tick: this.state.tick + 1, screen: 'home' }) }
@@ -106,6 +124,15 @@ export default class App extends React.Component {
     const c = this.calc(), late = this.diff(c.today, c.next)
     if (late >= 1) return { show: true, days: late, msg: 'تأخّرت دورتكِ ' + late + ' ' + (late === 1 ? 'يوم' : 'أيام') + ' عن الموعد المتوقّع — يمكنكِ إجراء اختبار الحمل المنزلي الآن. للتأكيد يُنصح بمراجعة الطبيب.' }
     return { show: false }
+  }
+  periodPromptInfo() {
+    const c = this.calc(), late = this.diff(c.today, c.next)
+    if (late < -3) return { show: false }
+    let title
+    if (late > 0) title = 'تأخّرت دورتكِ ' + late + ' ' + (late === 1 ? 'يوم' : 'أيام')
+    else if (late === 0) title = 'موعد دورتكِ المتوقّع اليوم'
+    else title = 'باقٍ ' + (-late) + ' ' + ((-late) === 1 ? 'يوم' : 'أيام') + ' على موعد دورتكِ'
+    return { show: true, title }
   }
   pregInfo() {
     for (let i = 0; i <= 21; i++) {
@@ -163,6 +190,9 @@ export default class App extends React.Component {
       cdOvu: Math.max(0, c.dto), cdFertile: Math.max(0, this.diff(c.fS, c.today)), cdPeriod: Math.max(0, c.dtp),
       cdOvuW: c.dto === 1 ? 'يوم' : 'أيام', cdFertileW: this.diff(c.fS, c.today) === 1 ? 'يوم' : 'أيام', cdPeriodW: c.dtp === 1 ? 'يوم' : 'أيام',
       dailyTip: this.dailyTip(ph), bestDays: this.bestDays(), lateAlert: this.lateInfo(), pregAlert: this.pregInfo(),
+      periodPrompt: this.periodPromptInfo(),
+      confirmToday: () => this.confirmPeriod(this.iso(new Date())),
+      confirmOnDate: e => this.confirmPeriod(e.target.value),
     }
   }
   rvCal() {
@@ -190,8 +220,10 @@ export default class App extends React.Component {
     if (l) { const parts = []; if (l.intimacy) parts.push('💞 جماع'); if (l.ovTest) parts.push('🧪 تبويض: ' + l.ovTest); if (l.pregTest) parts.push('🤍 حمل: ' + l.pregTest); if (l.flow) parts.push('🩸 ' + l.flow); if (l.bbt) parts.push('🌡 ' + l.bbt + '°'); if (l.mood) parts.push(l.mood); if (l.symptoms && l.symptoms.length) parts.push(l.symptoms.join('، ')); if (parts.length) summary = parts.join('  •  ') }
     const ovActs = ['سلبي', 'إيجابي'].map((o, i) => ({ key: i, label: o, cls: 'opt' + (e.ovTest === o ? (o === 'إيجابي' ? ' onp' : ' on') : ''), onClick: () => this.patchDay(si, { ovTest: e.ovTest === o ? '' : o }) }))
     const pregActs = ['سلبي', 'إيجابي'].map((o, i) => ({ key: i, label: o, cls: 'opt' + (e.pregTest === o ? (o === 'إيجابي' ? ' onp' : ' on') : ''), onClick: () => this.patchDay(si, { pregTest: e.pregTest === o ? '' : o }) }))
+    const isPeriodStart = si === this.data.settings.lastPeriod
     const sel = {
       dateLabel: this.arLong(d), isToday: si === today, phaseLabel: lab[phk], phasePill: 'pill ' + pm[phk], summary,
+      isPeriodStart, markPeriod: () => this.confirmPeriod(si),
       intiCls: 'bigtog' + (e.intimacy ? ' on' : ''), intiTxt: e.intimacy ? 'نعم' : 'لا', toggleInti: () => this.patchDay(si, { intimacy: !e.intimacy }),
       ovActs, pregActs,
       editDay: () => { this.hap(); this.setState({ logISO: si, screen: 'log', saved: false }) },
@@ -221,9 +253,9 @@ export default class App extends React.Component {
     }
   }
   rvStats() {
-    const h = this.data.history, c = this.calc()
-    const avg = Math.round(h.reduce((a, b) => a + b, 0) / h.length)
-    const sd = this.stdev(h), reg = sd <= 1.5 ? 'منتظمة' : sd <= 3 ? 'شبه منتظمة' : 'متغيرة'
+    const h = this.data.history || [], c = this.calc(), hasHist = h.length > 0
+    const avg = hasHist ? Math.round(h.reduce((a, b) => a + b, 0) / h.length) : c.L
+    const sd = hasHist ? this.stdev(h) : 0, reg = !hasHist ? '—' : sd <= 1.5 ? 'منتظمة' : sd <= 3 ? 'شبه منتظمة' : 'متغيرة'
     const mx = Math.max(...h, c.L)
     const bars = h.map((v, i) => ({ key: i, len: v, h: Math.round((v / mx) * 100) + '%', label: 'د' + (i + 1), cls: 'bar' }))
     bars.push({ key: 'cur', len: c.L, h: Math.round((c.L / mx) * 100) + '%', label: 'الآن', cls: 'bar cur' })
@@ -238,14 +270,14 @@ export default class App extends React.Component {
       bbtH = H
     }
     const fi = this.fertileIntimacy(), lh = this.lhTimeline()
-    const spread = Math.max(...h) - Math.min(...h)
+    const spread = hasHist ? Math.max(...h) - Math.min(...h) : 0
     return {
       avgCycle: avg, regLabel: reg, avgPeriod: c.P, cycleBars: bars, hasBbt, bbtPath, bbtPts, bbtH,
       cyclesCount: h.length,
       fiInFertile: fi.inFertile, fiTotal: fi.total,
       lhTimeline: lh, hasLh: lh.length > 0,
-      varAlert: spread >= 5, varMsg: 'لوحظ تفاوت ' + spread + ' أيام بين أطول وأقصر دورة — يُفضّل متابعة الطبيب إذا تكرر ذلك.',
-      insight: reg === 'منتظمة' ? 'دورتكِ منتظمة بشكل ممتاز، ما يجعل توقّع التبويض أكثر دقة.' : 'هناك تفاوت بسيط في طول الدورة، استمري بالتسجيل لتحسين دقة التوقّعات.',
+      varAlert: hasHist && spread >= 5, varMsg: 'لوحظ تفاوت ' + spread + ' أيام بين أطول وأقصر دورة — يُفضّل متابعة الطبيب إذا تكرر ذلك.',
+      insight: !hasHist ? 'سجّلي بدء كل دورة (بزر "تأكيد بدء الدورة") لبناء سجلكِ وتحسين دقة توقّع التبويض تدريجيًا.' : reg === 'منتظمة' ? 'دورتكِ منتظمة بشكل ممتاز، ما يجعل توقّع التبويض أكثر دقة.' : 'هناك تفاوت بسيط في طول الدورة، استمري بالتسجيل لتحسين دقة التوقّعات.',
     }
   }
   rvSet() {
@@ -311,6 +343,17 @@ export default class App extends React.Component {
         )}
         {v.lateAlert.show && (
           <div className="alert"><div className="ae">🤍</div><div><div className="at">قد يكون موعد اختبار الحمل</div><div className="ax">{v.lateAlert.msg}</div></div></div>
+        )}
+        {v.periodPrompt.show && (
+          <div className="card">
+            <div className="ttl">{v.periodPrompt.title}</div>
+            <p className="selsum">هل بدأت دورتكِ فعلًا؟ أكّدي ليُعاد حساب أيام التبويض والخصوبة بدقّة.</p>
+            <button className="qbtn" onClick={v.confirmToday}>🩸 نعم، بدأت اليوم</button>
+            <div className="fld" style={{ marginTop: 13 }}>
+              <span style={{ fontSize: 13, color: 'var(--ink2)' }}>أو اختاري يوم البداية</span>
+              <input className="datein" type="date" value="" onChange={v.confirmOnDate} />
+            </div>
+          </div>
         )}
         <div className="card">
           <div className="ringwrap">
@@ -392,6 +435,7 @@ export default class App extends React.Component {
           <div className="hi" style={{ marginBottom: 4 }}>{v.sel.isToday ? 'اليوم • ' : ''}{v.sel.dateLabel}</div>
           <div className={v.sel.phasePill}><span className="dot"></span>{v.sel.phaseLabel}</div>
           <p className="selsum">{v.sel.summary}</p>
+          <button className={'bigtog' + (v.sel.isPeriodStart ? ' on' : '')} onClick={v.sel.markPeriod} style={{ marginBottom: 13 }}>🩸 {v.sel.isPeriodStart ? 'يوم بدء دورتكِ' : 'تأكيد بدء الدورة هنا'}<span className="yn">{v.sel.isPeriodStart ? '✓' : 'تأكيد'}</span></button>
           <button className={v.sel.intiCls} onClick={v.sel.toggleInti} style={{ marginBottom: 13 }}>💞 جماع<span className="yn">{v.sel.intiTxt}</span></button>
           <div className="lbl">🧪 اختبار التبويض</div>
           <div className="opts" style={{ marginBottom: 13 }}>{v.sel.ovActs.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
