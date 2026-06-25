@@ -10,6 +10,7 @@ export default class App extends React.Component {
     this.load()
     // مجموعة بيانات مشتركة: الجميع على نفس المفتاح => نفس البيانات للكل.
     this.syncKey = SHARED_KEY
+    this.identity = this.initIdentity()
     this.state = {
       screen: 'splash',
       calY: n.getFullYear(),
@@ -21,7 +22,31 @@ export default class App extends React.Component {
       syncing: false,
       syncedAt: 0,
       syncError: false,
+      toast: '',
     }
+  }
+
+  // هوية صاحب الجهاز: 👨 الزوج أو 👩 الزوجة — تُحفظ محليًا لكل جهاز.
+  initIdentity() {
+    let d = ''
+    try { d = localStorage.getItem('rweida_identity') || '' } catch (e) {}
+    return d
+  }
+  setIdentity(id) {
+    this.identity = id
+    try { localStorage.setItem('rweida_identity', id) } catch (e) {}
+    this.hap(); this.setState({ tick: this.state.tick + 1 })
+  }
+  identityView(id) {
+    const s = this.data.settings
+    if (id === 'husband') return { emoji: '👨', name: s.husband || 'الزوج' }
+    if (id === 'wife') return { emoji: '👩', name: s.wife || 'الزوجة' }
+    return { emoji: '👤', name: 'جهاز' }
+  }
+  showToast(msg) {
+    this.setState({ toast: msg })
+    clearTimeout(this._toastT)
+    this._toastT = setTimeout(() => this.setState({ toast: '' }), 4500)
   }
 
   componentDidMount() {
@@ -35,7 +60,7 @@ export default class App extends React.Component {
     try { document.addEventListener('visibilitychange', this._onVis); window.addEventListener('focus', this._onVis) } catch (e) {}
   }
   componentWillUnmount() {
-    clearTimeout(this._t); clearTimeout(this._cloudT); clearInterval(this._poll)
+    clearTimeout(this._t); clearTimeout(this._cloudT); clearInterval(this._poll); clearTimeout(this._toastT)
     try { document.removeEventListener('visibilitychange', this._onVis); window.removeEventListener('focus', this._onVis) } catch (e) {}
   }
 
@@ -45,8 +70,10 @@ export default class App extends React.Component {
     if (this._cloudT) return // حفظ محلي معلّق — لا نستبدل تعديل المستخدمة الحالي
     const remote = await cloudLoad(this.syncKey)
     if (remote && remote.settings && (remote.updatedAt || '') > (this.data.updatedAt || '')) {
+      const who = remote.editedBy && remote.editedBy !== this.identity ? this.identityView(remote.editedBy) : null
       this.persist(remote)
       this.setState({ tick: this.state.tick + 1, syncedAt: Date.now(), syncError: false })
+      if (who) this.showToast('🔄 حدّث ' + who.emoji + ' ' + who.name + ' البيانات')
     }
   }
   async syncFromCloud() {
@@ -54,7 +81,12 @@ export default class App extends React.Component {
     const remote = await cloudLoad(this.syncKey)
     if (remote && remote.settings) {
       const rt = remote.updatedAt || '', lt = this.data.updatedAt || ''
-      if (rt > lt) { this.persist(remote); this.setState({ tick: this.state.tick + 1, syncing: false, syncError: false, syncedAt: Date.now() }); return }
+      if (rt > lt) {
+        const who = remote.editedBy && remote.editedBy !== this.identity ? this.identityView(remote.editedBy) : null
+        this.persist(remote); this.setState({ tick: this.state.tick + 1, syncing: false, syncError: false, syncedAt: Date.now() })
+        if (who) this.showToast('🔄 حدّث ' + who.emoji + ' ' + who.name + ' البيانات')
+        return
+      }
       if (lt > rt) { const ok = await cloudSave(this.syncKey, this.data); this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt }); return }
     } else {
       const ok = await cloudSave(this.syncKey, this.data)
@@ -83,7 +115,7 @@ export default class App extends React.Component {
     this.data = d
   }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
-  save(d) { d = { ...d, updatedAt: new Date().toISOString() }; this.persist(d); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud() }
+  save(d) { d = { ...d, updatedAt: new Date().toISOString(), editedBy: this.identity }; this.persist(d); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud() }
   seed() {
     // بداية نظيفة بلا بيانات تجريبية. آخر دورة ٢٣ يونيو، والدورة السابقة ٢٧ مايو
     // (دورة مكتملة طولها ٢٧ يومًا)، كلاهما مسجّل كبداية دورة. القيم قابلة للتعديل.
@@ -192,6 +224,20 @@ export default class App extends React.Component {
     }
     return { show: false }
   }
+  smartTips() {
+    const tips = [], today = new Date(), tISO = this.iso(today)
+    // اختبار تبويض إيجابي خلال آخر يومين → التبويض وشيك.
+    let lhPos = false
+    for (let i = 0; i <= 2; i++) { const lg = this.data.logs[this.iso(this.addDays(today, -i))]; if (lg && lg.ovTest === 'إيجابي') { lhPos = true; break } }
+    if (lhPos) tips.push({ icon: '🧪', text: 'ظهر اختبار تبويض إيجابي — التبويض متوقّع خلال ٢٤–٣٦ ساعة. اليوم وغدًا هما الأفضل للجماع.' })
+    // خصوبة عالية اليوم ولم يُسجَّل جماع → تذكير لطيف بعدم تفويت اليوم.
+    const lvl = this.chanceLevel(today), todayLog = this.data.logs[tISO]
+    if (lvl >= 3 && !(todayLog && todayLog.intimacy)) tips.push({ icon: '🔥', text: 'اليوم من أعلى أيامكِ خصوبة — لا تفوّتي فرصة اليوم لزيادة احتمال الحمل.' })
+    // تأكيد البدء: مرّت أيام على الموعد المتوقّع دون تأكيد الدورة.
+    const c = this.calc(), late = this.diff(c.today, c.next)
+    if (late >= 3 && !(this.data.logs[tISO] && this.data.logs[tISO].pregTest)) tips.push({ icon: '🤍', text: 'تأخّر الموعد المتوقّع للدورة — يُنصح بإجراء اختبار حمل منزلي وتسجيل نتيجته.' })
+    return tips
+  }
   fertileIntimacy() {
     const c = this.calc(); let n = 0, t = 0
     for (let i = 0; i < c.L; i++) { const dt = this.addDays(c.last, i), lg = this.data.logs[this.iso(dt)]; if (lg && lg.intimacy) { t++; const o = this.offsetOf(dt), ov = c.L - 14; if (o >= ov - 5 && o <= ov + 1) n++ } }
@@ -214,7 +260,7 @@ export default class App extends React.Component {
       navHomeCls: nc('home'), navCalCls: nc('calendar'), navStatsCls: nc('stats'), navSetCls: nc('settings'),
       dismissSplash: () => this.setState({ screen: 'home' }),
       goHome: () => this.go('home'), goCalendar: () => this.go('calendar'), goLog: () => this.go('log'), goStats: () => this.go('stats'), goSettings: () => this.go('settings'),
-      sync: this.syncView(),
+      sync: this.syncView(), meEmoji: this.identity ? this.identityView(this.identity).emoji : '',
     }
   }
   syncView() {
@@ -245,6 +291,7 @@ export default class App extends React.Component {
       cdOvu: Math.max(0, c.dto), cdFertile: Math.max(0, this.diff(c.fS, c.today)), cdPeriod: Math.max(0, c.dtp),
       cdOvuW: c.dto === 1 ? 'يوم' : 'أيام', cdFertileW: this.diff(c.fS, c.today) === 1 ? 'يوم' : 'أيام', cdPeriodW: c.dtp === 1 ? 'يوم' : 'أيام',
       dailyTip: this.dailyTip(ph), bestDays: this.bestDays(), lateAlert: this.lateInfo(), pregAlert: this.pregInfo(),
+      smartTips: this.smartTips(),
       periodPrompt: this.periodPromptInfo(),
       confirmToday: () => this.confirmPeriod(this.iso(new Date())),
       confirmOnDate: e => this.confirmPeriod(e.target.value),
@@ -349,6 +396,11 @@ export default class App extends React.Component {
       themeLabel: s.theme === 'dark' ? 'الوضع الداكن' : 'الوضع الفاتح', resetData: () => this.resetAll(),
       syncKey: this.syncKey,
       syncStatus: this.state.syncing ? 'جارٍ الحفظ…' : this.state.syncError ? '⚠️ غير متصل — سيُحفظ عند عودة الاتصال' : (this.state.syncedAt ? 'محفوظ ☁️ ' + new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { hour: 'numeric', minute: 'numeric' }).format(new Date(this.state.syncedAt)) : 'بانتظار المزامنة'),
+      identity: this.identity,
+      husbandCls: 'opt' + (this.identity === 'husband' ? ' on' : ''), wifeCls: 'opt' + (this.identity === 'wife' ? (' onp') : ''),
+      pickHusband: () => this.setIdentity('husband'), pickWife: () => this.setIdentity('wife'),
+      husbandName: s.husband, wifeName: s.wife,
+      lastEdit: (() => { const e = this.data.editedBy; if (!e) return ''; const v = this.identityView(e); return v.emoji + ' ' + v.name })(),
     }
   }
 
@@ -369,8 +421,10 @@ export default class App extends React.Component {
           {g.showNav && (
             <button className={'syncbadge ' + g.sync.cls} onClick={g.goSettings} title="حالة المزامنة">
               <span className="si">{g.sync.icon}</span>{g.sync.text}
+              {g.meEmoji && <span className="me">{g.meEmoji}</span>}
             </button>
           )}
+          {this.state.toast && <div className="toast">{this.state.toast}</div>}
           <div className="scroll">
             {g.isHome && this.renderHome(g)}
             {g.isCal && this.renderCalendar()}
@@ -400,6 +454,24 @@ export default class App extends React.Component {
           <div><div className="hi">{v.todayLabel}</div><h1 className="nm">{v.greeting} 🤍</h1></div>
           <button className="tbtn" onClick={g.goSettings}>⚙</button>
         </div>
+        {!this.identity && (
+          <div className="card">
+            <div className="ttl">مين يستخدم هذا الجهاز؟</div>
+            <p className="selsum">اختاري هويتك ليظهر للطرف الآخر مين عدّل البيانات.</p>
+            <div className="opts">
+              <button className="opt" onClick={() => this.setIdentity('husband')}>👨 {this.data.settings.husband}</button>
+              <button className="opt onp" onClick={() => this.setIdentity('wife')}>👩 {this.data.settings.wife}</button>
+            </div>
+          </div>
+        )}
+        {v.smartTips && v.smartTips.length > 0 && (
+          <div className="card">
+            <div className="ttl">💡 ملاحظات ذكية</div>
+            {v.smartTips.map((t, i) => (
+              <div key={i} className="smarttip"><span className="se">{t.icon}</span><span>{t.text}</span></div>
+            ))}
+          </div>
+        )}
         {v.pregAlert.show && (
           <div className="alert good"><div className="ae">🎉</div><div><div className="at">مبروك!</div><div className="ax">{v.pregAlert.msg}</div></div></div>
         )}
@@ -644,7 +716,12 @@ export default class App extends React.Component {
           <div className="ttl">المزامنة المشتركة</div>
           <p className="selsum">بيانات مشتركة واحدة: أي شخص يفتح الرابط يرى نفس البيانات، وأي تعديل من أي طرف يظهر للجميع تلقائيًا خلال ثوانٍ.</p>
           <div className="srow"><div className="sl"><div className="si2">☁️</div>الحالة</div><div style={{ fontSize: 12, color: 'var(--ink2)', fontWeight: 600 }}>{v.syncStatus}</div></div>
-          <div className="srow"><div className="sl"><div className="si2">👫</div>المشاركة</div><div style={{ fontSize: 12, color: 'var(--fertile)', fontWeight: 700 }}>مفعّلة للجميع</div></div>
+          {v.lastEdit && <div className="srow"><div className="sl"><div className="si2">✏️</div>آخر تعديل بواسطة</div><div style={{ fontSize: 13, fontWeight: 700 }}>{v.lastEdit}</div></div>}
+          <div className="lbl" style={{ marginTop: 12 }}>👤 صاحب هذا الجهاز</div>
+          <div className="opts">
+            <button className={v.husbandCls} onClick={v.pickHusband}>👨 {v.husbandName}</button>
+            <button className={v.wifeCls} onClick={v.pickWife}>👩 {v.wifeName}</button>
+          </div>
         </div>
         <div className="note">🔒 <div>البيانات مشتركة بين كل من يملك رابط التطبيق، ومحفوظة في قاعدة بيانات آمنة. هذا التطبيق لا يُغني عن استشارة الطبيب المختص.</div></div>
         <button className="danger" onClick={v.resetData}>حذف جميع البيانات</button>
