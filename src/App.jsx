@@ -449,7 +449,7 @@ export default class App extends React.Component {
           <div className="lbl">📝 ملاحظات</div>
           <textarea className="area" placeholder="اكتبي أي ملاحظة لهذا اليوم..." value={v.noteVal} onChange={v.setNote} />
         </div>
-        <button className="qbtn" onClick={v.saveLog}>حفظ ✓</button>
+        <div className="savebar"><button className="qbtn" onClick={v.saveLog}>تم ✓ (يُحفظ تلقائيًا)</button></div>
       </div>
     )
   }

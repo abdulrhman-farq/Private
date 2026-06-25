@@ -9,14 +9,14 @@ html,body{margin:0;padding:0;background:#100b13}
 .amb i{position:absolute;border-radius:50%;filter:blur(48px);opacity:.5}
 .amb i:nth-child(1){width:230px;height:230px;background:var(--rose-s);top:-60px;left:-50px}
 .amb i:nth-child(2){width:200px;height:200px;background:var(--fertile-s);bottom:120px;right:-70px;opacity:.4}
-.scroll{position:relative;z-index:1;flex:1;overflow-y:auto;overflow-x:hidden;padding:0 18px calc(120px + env(safe-area-inset-bottom,0px))}
+.scroll{position:relative;z-index:1;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 18px 24px}
 .scroll::-webkit-scrollbar{display:none}
 .screen{animation:scin .42s cubic-bezier(.22,1,.36,1)}
 @keyframes scin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .card{background:var(--card);border-radius:24px;box-shadow:var(--shadow);padding:20px;margin-bottom:15px}
-.nav{position:absolute;z-index:5;bottom:0;left:0;right:0;min-height:84px;background:var(--card);border-top:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-around;padding:11px 8px env(safe-area-inset-bottom,0px);box-shadow:0 -8px 24px rgba(0,0,0,.06)}
+.nav{position:relative;z-index:5;flex-shrink:0;min-height:84px;background:var(--card);border-top:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-around;padding:11px 8px env(safe-area-inset-bottom,0px);box-shadow:0 -8px 24px rgba(0,0,0,.06)}
 .nav button{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink2);font-family:inherit;font-size:10.5px;font-weight:600;padding:4px 9px;transition:color .2s}
 .nav button .ic{font-size:20px;line-height:1;transition:transform .2s}
 .nav button.on{color:var(--rose-d)}
@@ -154,7 +154,7 @@ html,body{margin:0;padding:0;background:#100b13}
 .couple{text-align:center;padding:6px 0 2px}
 .couple .ch{font-family:'Reem Kufi';font-size:20px;font-weight:700}
 .couple .cs{font-size:12px;color:var(--ink2);margin-top:4px}
-.savebar{position:sticky;bottom:0}
+.savebar{position:sticky;bottom:0;z-index:4;padding:12px 0 4px;margin:4px -2px 0;background:linear-gradient(to top,var(--bg) 72%,transparent)}
 .cd3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:15px}
 .cdc{background:var(--card);border-radius:18px;box-shadow:var(--shadow-s);padding:15px 6px;text-align:center}
 .cdc .cv{font-family:'Reem Kufi';font-size:30px;font-weight:700;line-height:1;color:var(--rose-d)}
