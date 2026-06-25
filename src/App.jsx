@@ -1,5 +1,5 @@
 import React from 'react'
-import { cloudLoad, cloudSave, pushSubscribe, SHARED_KEY, VAPID_PUBLIC } from './supabase.js'
+import { cloudLoad, cloudSave, pushSubscribe, addCustomMessage, listCustomMessages, deleteCustomMessage, SHARED_KEY, VAPID_PUBLIC } from './supabase.js'
 
 // أيام تبويض رويدا — faithful React port of the Claude Design prototype.
 // All cycle math, seeding and localStorage persistence mirror the original 1:1.
@@ -23,6 +23,8 @@ export default class App extends React.Component {
       syncedAt: 0,
       syncError: false,
       toast: '',
+      customs: [],
+      cmText: '', cmTimes: 5, cmDays: 1, cmTarget: 'wife',
     }
   }
 
@@ -48,6 +50,20 @@ export default class App extends React.Component {
     clearTimeout(this._toastT)
     this._toastT = setTimeout(() => this.setState({ toast: '' }), 4500)
   }
+  // ---- الرسائل المخصّصة ----
+  loadCustoms() { listCustomMessages(this.syncKey).then(rows => this.setState({ customs: rows })) }
+  addCustoms() {
+    const lines = (this.state.cmText || '').split('\n').map(s => s.trim()).filter(Boolean)
+    if (!lines.length) { if (typeof alert === 'function') alert('اكتبي رسالة أولًا.'); return }
+    const times = Math.max(1, Math.min(200, parseInt(this.state.cmTimes) || 1))
+    const days = Math.max(1, Math.min(60, parseInt(this.state.cmDays) || 1))
+    const target = this.state.cmTarget || 'wife'
+    this.hap()
+    Promise.all(lines.map(t => addCustomMessage(this.syncKey, t, times, days, target))).then(() => {
+      this.setState({ cmText: '' }); this.showToast('✅ تمت إضافة الرسائل وستبدأ بالإرسال'); this.loadCustoms()
+    })
+  }
+  delCustom(id) { this.hap(); deleteCustomMessage(this.syncKey, id).then(() => this.loadCustoms()) }
 
   componentDidMount() {
     this._t = setTimeout(() => {
@@ -60,6 +76,7 @@ export default class App extends React.Component {
     try { document.addEventListener('visibilitychange', this._onVis); window.addEventListener('focus', this._onVis) } catch (e) {}
     setTimeout(() => this.maybeNotify(), 2600)
     if (this.notifyEnabled()) this.enablePush()
+    this.loadCustoms()
   }
   componentWillUnmount() {
     clearTimeout(this._t); clearTimeout(this._cloudT); clearInterval(this._poll); clearTimeout(this._toastT)
@@ -155,7 +172,7 @@ export default class App extends React.Component {
   arMonth(y, m) { return new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { month: 'long', year: 'numeric' }).format(new Date(y, m, 1)) }
 
   // ---- navigation & mutations ----
-  go(s) { this.hap(); this.setState({ screen: s, saved: false }) }
+  go(s) { this.hap(); this.setState({ screen: s, saved: false }); if (s === 'settings') this.loadCustoms() }
   bumpCycle(n) { const s = { ...this.data.settings }; s.cycleLength = Math.max(21, Math.min(40, s.cycleLength + n)); this.save({ ...this.data, settings: s }) }
   bumpPeriod(n) { const s = { ...this.data.settings }; s.periodLength = Math.max(2, Math.min(10, s.periodLength + n)); this.save({ ...this.data, settings: s }) }
   setLast(v) { if (!v) return; const s = { ...this.data.settings, lastPeriod: v }; this.save({ ...this.data, settings: s }) }
@@ -498,6 +515,18 @@ export default class App extends React.Component {
       lastEdit: (() => { const e = this.data.editedBy; if (!e) return ''; const v = this.identityView(e); return v.emoji + ' ' + v.name })(),
       notifOn: this.notifyEnabled(), enableNotif: () => this.requestNotif(),
       pregOn: this.pregActive(), togglePreg: () => this.setPregnancy(!this.pregActive()),
+      cmText: this.state.cmText, cmTimes: this.state.cmTimes, cmDays: this.state.cmDays, cmTarget: this.state.cmTarget,
+      onCmText: e => this.setState({ cmText: e.target.value }),
+      onCmTimes: e => this.setState({ cmTimes: e.target.value }),
+      onCmDays: e => this.setState({ cmDays: e.target.value }),
+      setCmTarget: t => this.setState({ cmTarget: t }),
+      addCustoms: () => this.addCustoms(),
+      customs: (this.state.customs || []).map(c => ({
+        id: c.id, text: c.text,
+        targetLabel: c.target === 'wife' ? '👩 رويدا' : c.target === 'husband' ? '👨 عبدالرحمن' : '👫 الاثنين',
+        progress: (c.done ? 'انتهت' : 'أُرسلت ' + c.sent + ' من ' + c.times) + ' • خلال ' + c.days + (c.days === 1 ? ' يوم' : ' أيام'),
+        del: () => this.delCustom(c.id),
+      })),
     }
   }
 
@@ -856,6 +885,39 @@ export default class App extends React.Component {
         <div className="card">
           <div className="ttl">وضع متابعة الحمل 🤰</div>
           <div className="srow"><div className="sl"><div className="si2">🤰</div>{v.pregOn ? 'مفعّل — متابعة الحمل' : 'تفعيل عند ثبوت الحمل'}</div><button className={'sw' + (v.pregOn ? ' on' : '')} onClick={v.togglePreg}></button></div>
+        </div>
+        <div className="card">
+          <div className="ttl">💌 رسائل مخصّصة</div>
+          <p className="selsum">اكتبي رسالة (أو عدة رسائل، كل سطر رسالة)، وحدّدي كم مرة تُرسل وخلال كم يوم — وتُرسل كإشعارات تلقائيًا.</p>
+          <textarea className="area" placeholder="اكتبي رسالتك هنا... (كل سطر = رسالة)" value={v.cmText} onChange={v.onCmText} />
+          <div className="fld" style={{ marginTop: 12 }}>
+            <span style={{ fontSize: 13, color: 'var(--ink2)' }}>كم مرة تتكرر</span>
+            <input className="num" type="number" min="1" max="200" value={v.cmTimes} onChange={v.onCmTimes} />
+          </div>
+          <div className="fld" style={{ marginTop: 10 }}>
+            <span style={{ fontSize: 13, color: 'var(--ink2)' }}>خلال كم يوم</span>
+            <input className="num" type="number" min="1" max="60" value={v.cmDays} onChange={v.onCmDays} />
+          </div>
+          <div className="lbl" style={{ marginTop: 12 }}>تُرسل إلى</div>
+          <div className="opts">
+            <button className={'opt' + (v.cmTarget === 'wife' ? ' on' : '')} onClick={() => v.setCmTarget('wife')}>👩 رويدا</button>
+            <button className={'opt' + (v.cmTarget === 'husband' ? ' on' : '')} onClick={() => v.setCmTarget('husband')}>👨 عبدالرحمن</button>
+            <button className={'opt' + (v.cmTarget === 'both' ? ' on' : '')} onClick={() => v.setCmTarget('both')}>👫 الاثنين</button>
+          </div>
+          <button className="qbtn" style={{ marginTop: 14 }} onClick={v.addCustoms}>➕ إضافة الرسائل</button>
+          {v.customs.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              {v.customs.map(c => (
+                <div key={c.id} className="srow">
+                  <div className="sl" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{c.text}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{c.targetLabel} • {c.progress}</div>
+                  </div>
+                  <button className="opt" style={{ flex: '0 0 auto', padding: '8px 12px', color: 'var(--rose-d)' }} onClick={c.del}>حذف</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="card">
           <div className="ttl">المظهر</div>

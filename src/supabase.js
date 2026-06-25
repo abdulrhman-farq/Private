@@ -23,6 +23,17 @@ export async function pushSubscribe(key, identity, sub) {
   } catch (e) { return false }
 }
 
+// رسائل مخصّصة يكتبها المستخدم — تُرسل بعدد مرات خلال عدد أيام.
+export async function addCustomMessage(key, text, times, days, target) {
+  try { const { error } = await supa.rpc('add_custom_message', { p_key: key, p_text: text, p_times: times, p_days: days, p_target: target }); return !error } catch (e) { return false }
+}
+export async function listCustomMessages(key) {
+  try { const { data, error } = await supa.rpc('list_custom_messages', { p_key: key }); return error ? [] : (data || []) } catch (e) { return [] }
+}
+export async function deleteCustomMessage(key, id) {
+  try { const { error } = await supa.rpc('delete_custom_message', { p_key: key, p_id: id }); return !error } catch (e) { return false }
+}
+
 // تحميل بيانات رمز المزامنة من السحابة (أو null إن لم توجد / عند الخطأ).
 export async function cloudLoad(key) {
   try {
