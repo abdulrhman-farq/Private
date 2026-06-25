@@ -37,16 +37,12 @@ export default class App extends React.Component {
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
   save(d) { this.persist(d); this.setState({ tick: this.state.tick + 1 }) }
   seed() {
-    const n = new Date(), last = this.addDays(n, -13), logs = {}
-    const set = (o, v) => { logs[this.iso(this.addDays(n, o))] = v }
-    set(0, { flow: '', symptoms: ['حساسية الصدر', 'رغبة عالية'], mood: '😌 هادئة', intimacy: true, ovTest: 'إيجابي', bbt: 36.6, note: '' })
-    set(-1, { flow: '', symptoms: ['انتفاخ'], mood: '😀 سعيدة', intimacy: false, ovTest: 'سلبي', bbt: 36.5, note: '' })
-    set(-2, { flow: '', symptoms: [], mood: '😐 عادية', intimacy: true, ovTest: 'سلبي', bbt: 36.4, note: '' })
-    set(-3, { flow: '', symptoms: ['تعب'], mood: '😐 عادية', intimacy: false, ovTest: 'سلبي', bbt: 36.4, note: '' })
-    set(-4, { flow: '', symptoms: [], mood: '😌 هادئة', intimacy: true, ovTest: '', bbt: 36.3, note: '' })
-    set(-5, { flow: '', symptoms: [], mood: '😀 سعيدة', intimacy: false, ovTest: '', bbt: 36.3, note: '' })
-    set(-6, { flow: '', symptoms: ['صداع'], mood: '😐 عادية', intimacy: false, ovTest: '', bbt: 36.4, note: '' })
-    return { settings: { lastPeriod: this.iso(last), cycleLength: 29, periodLength: 5, theme: 'light', wife: 'رويدا', husband: 'عبدالرحمن', reminders: { fertile: true, ovulation: true, period: true, test: false } }, history: [28, 30, 29, 27, 29], logs }
+    // بيانات رويدا الفعلية: آخر دورتين ٢٧ مايو ثم ٢٣ يونيو ٢٠٢٦ → طول الدورة ٢٧ يومًا.
+    return {
+      settings: { lastPeriod: '2026-06-23', cycleLength: 27, periodLength: 5, theme: 'light', wife: 'رويدا', husband: 'عبدالرحمن', reminders: { fertile: true, ovulation: true, period: true, test: false } },
+      history: [27],
+      logs: {},
+    }
   }
 
   // ---- date helpers ----
