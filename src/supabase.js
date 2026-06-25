@@ -9,6 +9,9 @@ export const supa = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
 
+// مجموعة بيانات مشتركة واحدة: كل من يفتح الرابط يرى ويحدّث نفس البيانات.
+export const SHARED_KEY = 'rweida-shared-9b7e2f4a1c8d6e30'
+
 // تحميل بيانات رمز المزامنة من السحابة (أو null إن لم توجد / عند الخطأ).
 export async function cloudLoad(key) {
   try {
