@@ -32,18 +32,18 @@ export default class App extends React.Component {
     let d = null
     try { d = JSON.parse(localStorage.getItem('rweida_v1')) } catch (e) {}
     // أي بيانات قديمة/تجريبية (بدون رقم الإصدار الحالي) تُمسح مرة واحدة لبداية نظيفة.
-    if (!d || !d.settings || d.v !== 3) { d = this.seed(); this.persist(d) }
+    if (!d || !d.settings || d.v !== 4) { d = this.seed(); this.persist(d) }
     this.data = d
   }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
   save(d) { this.persist(d); this.setState({ tick: this.state.tick + 1 }) }
   seed() {
-    // بداية نظيفة بلا أي بيانات تجريبية. نقطة انطلاق واقعية (آخر دورة ٢٣ يونيو، طول ٢٧ يومًا)
-    // قابلة للتعديل بالكامل من الإعدادات، والسجل يُبنى من تأكيد بدء كل دورة.
+    // بداية نظيفة بلا بيانات تجريبية. آخر دورة ٢٣ يونيو، والدورة السابقة ٢٧ مايو
+    // (دورة مكتملة طولها ٢٧ يومًا). كل القيم قابلة للتعديل من الإعدادات.
     return {
-      v: 3,
+      v: 4,
       settings: { lastPeriod: '2026-06-23', cycleLength: 27, periodLength: 5, theme: 'light', wife: 'رويدا', husband: 'عبدالرحمن', reminders: { fertile: true, ovulation: true, period: true, test: false } },
-      history: [],
+      history: [27],
       logs: {},
     }
   }
