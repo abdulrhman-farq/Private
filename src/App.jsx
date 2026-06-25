@@ -402,8 +402,9 @@ export default class App extends React.Component {
     const ringStyle = 'conic-gradient(' + cvar[ph] + ' ' + pct + '%, var(--track) 0)'
     const ovE = this.ovulationEstimate()
     const srcTxt = ovE.source === 'lh' ? 'حسب اختبار التبويض' : ovE.source === 'bbt' ? 'حسب ارتفاع الحرارة' : 'حسب التقويم'
+    const meName = this.identity ? this.identityView(this.identity).name : this.data.settings.wife
     return {
-      greeting: 'أهلاً، ' + this.data.settings.wife, todayLabel: this.arLong(c.today),
+      greeting: 'أهلاً، ' + meName, todayLabel: this.arLong(c.today),
       cycleDay: c.cycleDay, phaseLabel: lab[ph], phasePill: 'pill ' + pmap[ph], ringStyle, ang,
       statusTitle: title, statusDesc: desc, chanceLabel: chance, chancePct: this.conceptionPct(c.today),
       ovEstLabel: this.arShort(ovE.date), ovEstSmart: ovE.source !== 'calc', ovEstSrc: srcTxt,
@@ -560,10 +561,12 @@ export default class App extends React.Component {
             </div>
           )}
           {g.showNav && (
-            <button className={'syncbadge ' + g.sync.cls} onClick={g.goSettings} title="حالة المزامنة">
-              <span className="si">{g.sync.icon}</span>{g.sync.text}
-              {g.meEmoji && <span className="me">{g.meEmoji}</span>}
-            </button>
+            <div className="topbar">
+              <button className={'syncbadge ' + g.sync.cls} onClick={g.goSettings} title="حالة المزامنة">
+                <span className="si">{g.sync.icon}</span>{g.sync.text}
+                {g.meEmoji && <span className="me">{g.meEmoji}</span>}
+              </button>
+            </div>
           )}
           {this.state.toast && <div className="toast">{this.state.toast}</div>}
           <div className="scroll">
