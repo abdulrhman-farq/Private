@@ -25,6 +25,7 @@ export default class App extends React.Component {
       toast: '',
       customs: [],
       cmText: '', cmTimes: 5, cmDays: 1, cmTarget: 'wife',
+      cmMode: 'spread', cmWhen: 'now', cmHour: 9,
     }
   }
 
@@ -55,12 +56,16 @@ export default class App extends React.Component {
   addCustoms() {
     const lines = (this.state.cmText || '').split('\n').map(s => s.trim()).filter(Boolean)
     if (!lines.length) { if (typeof alert === 'function') alert('اكتبي رسالة أولًا.'); return }
-    const times = Math.max(1, Math.min(200, parseInt(this.state.cmTimes) || 1))
-    const days = Math.max(1, Math.min(60, parseInt(this.state.cmDays) || 1))
     const target = this.state.cmTarget || 'wife'
+    const once = this.state.cmMode === 'once'
+    const times = once ? 1 : Math.max(1, Math.min(200, parseInt(this.state.cmTimes) || 1))
+    const days = once ? 1 : Math.max(1, Math.min(60, parseInt(this.state.cmDays) || 1))
+    const atHour = (once && this.state.cmWhen === 'hour') ? Math.max(0, Math.min(23, parseInt(this.state.cmHour) || 0)) : null
     this.hap()
-    Promise.all(lines.map(t => addCustomMessage(this.syncKey, t, times, days, target))).then(() => {
-      this.setState({ cmText: '' }); this.showToast('✅ تمت إضافة الرسائل وستبدأ بالإرسال'); this.loadCustoms()
+    Promise.all(lines.map(t => addCustomMessage(this.syncKey, t, times, days, target, this.state.cmMode, atHour))).then(() => {
+      this.setState({ cmText: '' })
+      this.showToast(once ? (atHour !== null ? '✅ ستُرسل عند الساعة ' + atHour : '✅ ستُرسل خلال دقائق') : '✅ تمت الإضافة وستبدأ بالإرسال')
+      this.loadCustoms()
     })
   }
   delCustom(id) { this.hap(); deleteCustomMessage(this.syncKey, id).then(() => this.loadCustoms()) }
@@ -516,15 +521,21 @@ export default class App extends React.Component {
       notifOn: this.notifyEnabled(), enableNotif: () => this.requestNotif(),
       pregOn: this.pregActive(), togglePreg: () => this.setPregnancy(!this.pregActive()),
       cmText: this.state.cmText, cmTimes: this.state.cmTimes, cmDays: this.state.cmDays, cmTarget: this.state.cmTarget,
+      cmMode: this.state.cmMode, cmWhen: this.state.cmWhen, cmHour: this.state.cmHour,
       onCmText: e => this.setState({ cmText: e.target.value }),
       onCmTimes: e => this.setState({ cmTimes: e.target.value }),
       onCmDays: e => this.setState({ cmDays: e.target.value }),
+      onCmHour: e => this.setState({ cmHour: e.target.value }),
       setCmTarget: t => this.setState({ cmTarget: t }),
+      setCmMode: m => this.setState({ cmMode: m }),
+      setCmWhen: w => this.setState({ cmWhen: w }),
       addCustoms: () => this.addCustoms(),
       customs: (this.state.customs || []).map(c => ({
         id: c.id, text: c.text,
         targetLabel: c.target === 'wife' ? '👩 رويدا' : c.target === 'husband' ? '👨 عبدالرحمن' : '👫 الاثنين',
-        progress: (c.done ? 'انتهت' : 'أُرسلت ' + c.sent + ' من ' + c.times) + ' • خلال ' + c.days + (c.days === 1 ? ' يوم' : ' أيام'),
+        progress: c.mode === 'once'
+          ? (c.done ? 'أُرسلت ✓' : (c.at_hour !== null && c.at_hour !== undefined ? 'مرة واحدة عند الساعة ' + c.at_hour : 'مرة واحدة — قريبًا'))
+          : (c.done ? 'انتهت' : 'أُرسلت ' + c.sent + ' من ' + c.times) + ' • خلال ' + c.days + (c.days === 1 ? ' يوم' : ' أيام'),
         del: () => this.delCustom(c.id),
       })),
     }
@@ -890,21 +901,44 @@ export default class App extends React.Component {
           <div className="ttl">💌 رسائل مخصّصة</div>
           <p className="selsum">اكتبي رسالة (أو عدة رسائل، كل سطر رسالة)، وحدّدي كم مرة تُرسل وخلال كم يوم — وتُرسل كإشعارات تلقائيًا.</p>
           <textarea className="area" placeholder="اكتبي رسالتك هنا... (كل سطر = رسالة)" value={v.cmText} onChange={v.onCmText} />
-          <div className="fld" style={{ marginTop: 12 }}>
-            <span style={{ fontSize: 13, color: 'var(--ink2)' }}>كم مرة تتكرر</span>
-            <input className="num" type="number" min="1" max="200" value={v.cmTimes} onChange={v.onCmTimes} />
+          <div className="lbl" style={{ marginTop: 12 }}>نوع الإرسال</div>
+          <div className="opts">
+            <button className={'opt' + (v.cmMode === 'spread' ? ' on' : '')} onClick={() => v.setCmMode('spread')}>🔁 متكرر</button>
+            <button className={'opt' + (v.cmMode === 'once' ? ' on' : '')} onClick={() => v.setCmMode('once')}>1️⃣ مرة واحدة</button>
           </div>
-          <div className="fld" style={{ marginTop: 10 }}>
-            <span style={{ fontSize: 13, color: 'var(--ink2)' }}>خلال كم يوم</span>
-            <input className="num" type="number" min="1" max="60" value={v.cmDays} onChange={v.onCmDays} />
-          </div>
+          {v.cmMode === 'spread' ? (
+            <>
+              <div className="fld" style={{ marginTop: 12 }}>
+                <span style={{ fontSize: 13, color: 'var(--ink2)' }}>كم مرة تتكرر</span>
+                <input className="num" type="number" min="1" max="200" value={v.cmTimes} onChange={v.onCmTimes} />
+              </div>
+              <div className="fld" style={{ marginTop: 10 }}>
+                <span style={{ fontSize: 13, color: 'var(--ink2)' }}>خلال كم يوم</span>
+                <input className="num" type="number" min="1" max="60" value={v.cmDays} onChange={v.onCmDays} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="lbl" style={{ marginTop: 12 }}>متى تُرسل</div>
+              <div className="opts">
+                <button className={'opt' + (v.cmWhen === 'now' ? ' on' : '')} onClick={() => v.setCmWhen('now')}>⚡ الآن</button>
+                <button className={'opt' + (v.cmWhen === 'hour' ? ' on' : '')} onClick={() => v.setCmWhen('hour')}>🕐 ساعة محددة</button>
+              </div>
+              {v.cmWhen === 'hour' && (
+                <div className="fld" style={{ marginTop: 10 }}>
+                  <span style={{ fontSize: 13, color: 'var(--ink2)' }}>الساعة (٠–٢٣ بتوقيت الرياض)</span>
+                  <input className="num" type="number" min="0" max="23" value={v.cmHour} onChange={v.onCmHour} />
+                </div>
+              )}
+            </>
+          )}
           <div className="lbl" style={{ marginTop: 12 }}>تُرسل إلى</div>
           <div className="opts">
             <button className={'opt' + (v.cmTarget === 'wife' ? ' on' : '')} onClick={() => v.setCmTarget('wife')}>👩 رويدا</button>
             <button className={'opt' + (v.cmTarget === 'husband' ? ' on' : '')} onClick={() => v.setCmTarget('husband')}>👨 عبدالرحمن</button>
             <button className={'opt' + (v.cmTarget === 'both' ? ' on' : '')} onClick={() => v.setCmTarget('both')}>👫 الاثنين</button>
           </div>
-          <button className="qbtn" style={{ marginTop: 14 }} onClick={v.addCustoms}>➕ إضافة الرسائل</button>
+          <button className="qbtn" style={{ marginTop: 14 }} onClick={v.addCustoms}>➕ إضافة</button>
           {v.customs.length > 0 && (
             <div style={{ marginTop: 14 }}>
               {v.customs.map(c => (

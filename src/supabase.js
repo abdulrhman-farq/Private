@@ -24,8 +24,8 @@ export async function pushSubscribe(key, identity, sub) {
 }
 
 // رسائل مخصّصة يكتبها المستخدم — تُرسل بعدد مرات خلال عدد أيام.
-export async function addCustomMessage(key, text, times, days, target) {
-  try { const { error } = await supa.rpc('add_custom_message', { p_key: key, p_text: text, p_times: times, p_days: days, p_target: target }); return !error } catch (e) { return false }
+export async function addCustomMessage(key, text, times, days, target, mode, atHour) {
+  try { const { error } = await supa.rpc('add_custom_message', { p_key: key, p_text: text, p_times: times, p_days: days, p_target: target, p_mode: mode || 'spread', p_at_hour: (atHour === null || atHour === undefined) ? null : atHour }); return !error } catch (e) { return false }
 }
 export async function listCustomMessages(key) {
   try { const { data, error } = await supa.rpc('list_custom_messages', { p_key: key }); return error ? [] : (data || []) } catch (e) { return [] }
