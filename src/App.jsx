@@ -27,6 +27,7 @@ export default class App extends React.Component {
       customs: [],
       cmText: '', cmTimes: 5, cmDays: 1, cmTarget: 'wife',
       cmMode: 'spread', cmWhen: 'now', cmHour: 9,
+      occLabel: '', occDateV: '', apType: '', apDate: '', apNote: '',
     }
   }
 
@@ -146,6 +147,64 @@ export default class App extends React.Component {
 
   hap() { try { navigator.vibrate && navigator.vibrate(8) } catch (e) {} }
 
+  // ---- المناسبات ----
+  occDate(o) {
+    const today = new Date(), y = today.getFullYear()
+    let d = new Date(y, o.month - 1, o.day)
+    if (this.startOf(d) < this.startOf(today)) d = new Date(y + 1, o.month - 1, o.day)
+    return d
+  }
+  occasionsView() {
+    const today = new Date()
+    return (this.data.settings.occasions || []).map(o => {
+      const d = this.occDate(o), days = this.diff(d, today)
+      return { id: o.id, emoji: o.emoji || '🎉', label: o.label, dateLabel: this.arShort(d), days, when: days === 0 ? 'اليوم! 🎉' : days === 1 ? 'بكرة 🎉' : 'بعد ' + days + ' يوم' }
+    }).sort((a, b) => a.days - b.days)
+  }
+  addOccasion(label, dateStr) {
+    label = (label || '').trim(); if (!label || !dateStr) return
+    const p = dateStr.split('-').map(Number)
+    const occ = { id: 'o' + Date.now().toString(36), emoji: '🎉', label, month: p[1], day: p[2] }
+    this.save({ ...this.data, settings: { ...this.data.settings, occasions: [...(this.data.settings.occasions || []), occ] } })
+    this.setState({ occLabel: '', occDateV: '' }); this.showToast('✅ أُضيفت المناسبة')
+  }
+  delOccasion(id) { this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, occasions: (this.data.settings.occasions || []).filter(o => o.id !== id) } }) }
+
+  // ---- الأسبوعان بعد التبويض ----
+  twwInfo() {
+    if (this.pregActive()) return { show: false }
+    const ov = this.ovulationEstimate().date, today = new Date(), since = this.diff(today, ov)
+    if (since < 1 || since > 17) return { show: false }
+    const testDate = this.addDays(ov, 14), toTest = this.diff(testDate, today)
+    return { show: true, day: Math.min(since, 14), pct: Math.min(100, Math.round((since / 14) * 100)), msg: toTest > 0 ? ('اختبار الحمل المثالي بعد ' + toTest + ' ' + (toTest === 1 ? 'يوم' : 'أيام') + ' — ' + this.arShort(testDate)) : 'اليوم وقتٌ مناسب لإجراء اختبار الحمل المنزلي 🤍' }
+  }
+
+  // ---- المواعيد الطبية ----
+  apptsView() {
+    return [...(this.data.appointments || [])].sort((a, b) => a.date < b.date ? -1 : 1).map(a => {
+      const d = this.parse(a.date), days = this.diff(d, new Date())
+      return { id: a.id, type: a.type, note: a.note, dateLabel: this.arLong(d), when: days < 0 ? 'مضى' : days === 0 ? 'اليوم' : days === 1 ? 'بكرة' : 'بعد ' + days + ' يوم', past: days < 0 }
+    })
+  }
+  addAppt() {
+    const date = this.state.apDate, type = (this.state.apType || '').trim(), note = (this.state.apNote || '').trim()
+    if (!date || !type) { if (typeof alert === 'function') alert('اكتبي نوع الموعد والتاريخ.'); return }
+    const ap = { id: 'a' + Date.now().toString(36), date, type, note }
+    this.save({ ...this.data, appointments: [...(this.data.appointments || []), ap] })
+    this.setState({ apType: '', apDate: '', apNote: '' }); this.showToast('✅ أُضيف الموعد')
+  }
+  delAppt(id) { this.hap(); this.save({ ...this.data, appointments: (this.data.appointments || []).filter(a => a.id !== id) }) }
+
+  nutritionTips() {
+    return {
+      wife: ['🥬 الورقيات الخضراء والبقوليات غنية بحمض الفوليك المهم قبل الحمل.', '🥚 البروتين الجيد (بيض، سمك، دجاج) يدعم جودة البويضات.', '🍊 فيتامين C والحديد يحسّنان الخصوبة — حمضيات ولحوم حمراء باعتدال.', '🥛 منتجات الألبان كاملة الدسم باعتدال قد تدعم الخصوبة.', '💧 رطّبي جسمكِ وقلّلي الكافيين والسكريات.'],
+      husband: ['🦪 الزنك (المحار، اللحوم، المكسرات) يحسّن جودة الحيوانات المنوية.', '🥜 الأوميغا-3 والمكسرات (سمك، جوز) تدعم خصوبة الرجل.', '🍅 مضادات الأكسدة (طماطم، توت، خضار ملوّنة) تحمي الحيوانات المنوية.', '🚭 تجنّب التدخين والحرارة العالية (الساونا).', '🏃 رياضة معتدلة ووزن صحي يرفعان الخصوبة.'],
+      both: ['🌰 حمض الفوليك يوميًا للطرفين أساسي قبل الحمل.', '😴 نوم كافٍ وتقليل التوتر يوازن الهرمونات.', '⚖️ الوزن الصحي للطرفين يرفع فرص الحمل.', '🚫 قلّلوا الأطعمة المصنّعة والدهون المتحوّلة.'],
+    }
+  }
+  toggleVitamins() { const s = { ...this.data.settings, vitamins: { ...(this.data.settings.vitamins || {}), on: !(this.data.settings.vitamins && this.data.settings.vitamins.on) } }; this.hap(); this.save({ ...this.data, settings: s }) }
+  printReport() { try { window.print() } catch (e) {} }
+
   // ---- persistence ----
   load() {
     let d = null
@@ -153,6 +212,22 @@ export default class App extends React.Component {
     // أي بيانات قديمة/تجريبية (بدون رقم الإصدار الحالي) تُمسح مرة واحدة لبداية نظيفة.
     if (!d || !d.settings || d.v !== 5) { d = this.seed(); this.persist(d) }
     this.data = d
+    this.migrate()
+  }
+  // إضافة الحقول الجديدة دون مسّ البيانات الموجودة.
+  migrate() {
+    const d = this.data, s = d.settings; let changed = false
+    if (!Array.isArray(s.occasions)) {
+      s.occasions = [
+        { id: 'eng', emoji: '💍', label: 'الملكة', month: 3, day: 22 },
+        { id: 'wed', emoji: '💒', label: 'ذكرى الزواج', month: 5, day: 29 },
+        { id: 'bh', emoji: '🎂', label: 'ميلاد عبدالرحمن', month: 11, day: 14, hideAge: true },
+        { id: 'bw', emoji: '🎂', label: 'ميلاد رويدا', month: 11, day: 30, hideAge: true },
+      ]; changed = true
+    }
+    if (!Array.isArray(d.appointments)) { d.appointments = []; changed = true }
+    if (!s.vitamins) { s.vitamins = { on: true, hour: 21 }; changed = true }
+    if (changed) this.persist(d)
   }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
   save(d) { d = { ...d, updatedAt: new Date().toISOString(), editedBy: this.identity }; this.persist(d); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud() }
@@ -536,6 +611,8 @@ export default class App extends React.Component {
       husbandName: s.husband, wifeName: s.wife,
       lastEdit: (() => { const e = this.data.editedBy; if (!e) return ''; const v = this.identityView(e); return v.emoji + ' ' + v.name })(),
       notifOn: this.notifyEnabled(), enableNotif: () => this.requestNotif(),
+      vitOn: !!(s.vitamins && s.vitamins.on), toggleVit: () => this.toggleVitamins(),
+      openTools: () => this.go('tools'),
       pregOn: this.pregActive(), togglePreg: () => this.setPregnancy(!this.pregActive()),
       cmText: this.state.cmText, cmTimes: this.state.cmTimes, cmDays: this.state.cmDays, cmTarget: this.state.cmTarget,
       cmMode: this.state.cmMode, cmWhen: this.state.cmWhen, cmHour: this.state.cmHour,
@@ -597,6 +674,8 @@ export default class App extends React.Component {
             {g.isLog && this.renderLog()}
             {g.isStats && this.renderStats()}
             {g.isSet && this.renderSettings()}
+            {this.state.screen === 'tools' && this.renderTools()}
+            {this.state.screen === 'report' && this.renderReport()}
           </div>
           {g.showNav && (
             <div className="nav">
@@ -615,12 +694,33 @@ export default class App extends React.Component {
   renderHome(g) {
     if (this.pregActive()) return this.renderPregnancy(g)
     const v = this.rvHome()
+    const tww = this.twwInfo()
+    const nextOcc = this.occasionsView()[0]
     return (
       <div className="screen">
         <div className="hd">
           <div><div className="hi">{v.todayLabel}</div><h1 className="nm">{v.greeting} 🤍</h1></div>
           <button className="tbtn" onClick={g.goSettings}>⚙</button>
         </div>
+        {tww.show && (
+          <div className="card">
+            <div className="ttl">⏳ الأسبوعان بعد التبويض — اليوم {tww.day} من 14</div>
+            <div className="track" style={{ height: 8, borderRadius: 6, background: 'var(--track)', overflow: 'hidden', margin: '4px 0 10px' }}>
+              <div style={{ width: tww.pct + '%', height: '100%', background: 'var(--grad)' }}></div>
+            </div>
+            <p className="selsum" style={{ margin: 0 }}>{tww.msg}</p>
+          </div>
+        )}
+        {nextOcc && (
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+            <div style={{ fontSize: 30 }}>{nextOcc.emoji}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700 }}>{nextOcc.label}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 2 }}>{nextOcc.dateLabel} • {nextOcc.when}</div>
+            </div>
+            <button className="opt" style={{ flex: '0 0 auto', padding: '8px 12px' }} onClick={() => this.go('tools')}>الكل</button>
+          </div>
+        )}
         {!this.identity && (
           <div className="card">
             <div className="ttl">مين يستخدم هذا الجهاز؟</div>
@@ -915,6 +1015,10 @@ export default class App extends React.Component {
             <div className="sl"><div className="si2">🔔</div>تنبيهات الجهاز</div>
             {v.notifOn ? <span style={{ fontSize: 12, color: 'var(--fertile)', fontWeight: 700 }}>مفعّلة ✓</span> : <button className="opt" style={{ flex: '0 0 auto', padding: '9px 16px' }} onClick={v.enableNotif}>تفعيل</button>}
           </div>
+          <div className="srow">
+            <div className="sl"><div className="si2">💊</div>تذكير الفيتامينات وحمض الفوليك (٩م)</div>
+            <button className={'sw' + (v.vitOn ? ' on' : '')} onClick={v.toggleVit}></button>
+          </div>
           {v.remOpts.map(r => (
             <div key={r.key} className="srow">
               <div className="sl"><div className="si2">{r.ic}</div>{r.label}</div>
@@ -922,6 +1026,7 @@ export default class App extends React.Component {
             </div>
           ))}
         </div>
+        <button className="qbtn" style={{ marginBottom: 15 }} onClick={v.openTools}>🗂️ أدوات ومناسبات ومواعيد</button>
         <div className="card">
           <div className="ttl">وضع متابعة الحمل 🤰</div>
           <div className="srow"><div className="sl"><div className="si2">🤰</div>{v.pregOn ? 'مفعّل — متابعة الحمل' : 'تفعيل عند ثبوت الحمل'}</div><button className={'sw' + (v.pregOn ? ' on' : '')} onClick={v.togglePreg}></button></div>
@@ -999,6 +1104,109 @@ export default class App extends React.Component {
         </div>
         <div className="note">🔒 <div>البيانات مشتركة بين كل من يملك رابط التطبيق، ومحفوظة في قاعدة بيانات آمنة. هذا التطبيق لا يُغني عن استشارة الطبيب المختص.</div></div>
         <button className="danger" onClick={v.resetData}>حذف جميع البيانات</button>
+      </div>
+    )
+  }
+
+  renderTools() {
+    const occs = this.occasionsView()
+    const appts = this.apptsView()
+    const tips = this.nutritionTips()
+    return (
+      <div className="screen">
+        <div className="hd" style={{ alignItems: 'center' }}>
+          <div><div className="hi">كل شيء في مكان واحد</div><h1 className="nm">أدوات ومناسبات</h1></div>
+          <button className="tbtn" onClick={() => this.go('home')}>‹</button>
+        </div>
+
+        <div className="card">
+          <div className="ttl">🎉 مناسباتكم</div>
+          {occs.map(o => (
+            <div key={o.id} className="srow">
+              <div className="sl"><div className="si2">{o.emoji}</div><div><div style={{ fontWeight: 600 }}>{o.label}</div><div style={{ fontSize: 11, color: 'var(--ink2)' }}>{o.dateLabel} • {o.when}</div></div></div>
+              <button className="opt" style={{ flex: '0 0 auto', padding: '7px 11px', color: 'var(--rose-d)' }} onClick={() => this.delOccasion(o.id)}>حذف</button>
+            </div>
+          ))}
+          <div className="lbl" style={{ marginTop: 12 }}>إضافة مناسبة</div>
+          <input className="area" style={{ minHeight: 0, padding: '12px 13px', marginBottom: 8 }} placeholder="اسم المناسبة" value={this.state.occLabel} onChange={e => this.setState({ occLabel: e.target.value })} />
+          <div className="fld">
+            <input className="datein" type="date" value={this.state.occDateV} onChange={e => this.setState({ occDateV: e.target.value })} style={{ flex: 1, minWidth: 0 }} />
+            <button className="opt" style={{ flex: '0 0 auto', padding: '11px 16px' }} onClick={() => this.addOccasion(this.state.occLabel, this.state.occDateV)}>إضافة</button>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="ttl">🩺 المواعيد الطبية</div>
+          {appts.length === 0 && <p className="selsum">لا توجد مواعيد. أضيفي موعد الطبيب أو السونار بالأسفل.</p>}
+          {appts.map(a => (
+            <div key={a.id} className="srow">
+              <div className="sl"><div className="si2">📅</div><div><div style={{ fontWeight: 600, opacity: a.past ? 0.5 : 1 }}>{a.type}</div><div style={{ fontSize: 11, color: 'var(--ink2)' }}>{a.dateLabel} • {a.when}{a.note ? ' • ' + a.note : ''}</div></div></div>
+              <button className="opt" style={{ flex: '0 0 auto', padding: '7px 11px', color: 'var(--rose-d)' }} onClick={() => this.delAppt(a.id)}>حذف</button>
+            </div>
+          ))}
+          <div className="lbl" style={{ marginTop: 12 }}>إضافة موعد</div>
+          <input className="area" style={{ minHeight: 0, padding: '12px 13px', marginBottom: 8 }} placeholder="نوع الموعد (طبيب، سونار، تحليل...)" value={this.state.apType} onChange={e => this.setState({ apType: e.target.value })} />
+          <input className="datein" type="date" value={this.state.apDate} onChange={e => this.setState({ apDate: e.target.value })} style={{ width: '100%', marginBottom: 8 }} />
+          <input className="area" style={{ minHeight: 0, padding: '12px 13px', marginBottom: 10 }} placeholder="ملاحظة (اختياري)" value={this.state.apNote} onChange={e => this.setState({ apNote: e.target.value })} />
+          <button className="qbtn" onClick={() => this.addAppt()}>➕ إضافة الموعد</button>
+        </div>
+
+        <div className="card">
+          <div className="ttl">🥗 نصائح التغذية للخصوبة</div>
+          <div className="lbl" style={{ marginTop: 4 }}>👩 لرويدا</div>
+          {tips.wife.map((t, i) => <div key={'w' + i} className="smarttip"><span>{t}</span></div>)}
+          <div className="lbl" style={{ marginTop: 12 }}>👨 لعبدالرحمن</div>
+          {tips.husband.map((t, i) => <div key={'h' + i} className="smarttip"><span>{t}</span></div>)}
+          <div className="lbl" style={{ marginTop: 12 }}>👫 للطرفين</div>
+          {tips.both.map((t, i) => <div key={'b' + i} className="smarttip"><span>{t}</span></div>)}
+        </div>
+
+        <button className="qbtn" onClick={() => this.go('report')}>📄 تقرير شهري للطبيب</button>
+      </div>
+    )
+  }
+
+  renderReport() {
+    const c = this.calc(), h = this.data.history || [], s = this.data.settings
+    const avg = h.length ? Math.round(h.reduce((a, b) => a + b, 0) / h.length) : c.L
+    const today = new Date()
+    let inti = 0, ovPos = 0, pregLogs = [], bbts = []
+    for (let i = 0; i < 60; i++) {
+      const iso = this.iso(this.addDays(today, -i)), lg = this.data.logs[iso]
+      if (!lg) continue
+      if (lg.intimacy) inti++
+      if (lg.ovTest === 'إيجابي') ovPos++
+      if (lg.pregTest) pregLogs.push(this.arShort(this.parse(iso)) + ': ' + lg.pregTest)
+      if (lg.bbt) bbts.push(this.arShort(this.parse(iso)) + ': ' + lg.bbt + '°')
+    }
+    const ovE = this.ovulationEstimate()
+    return (
+      <div className="screen report">
+        <div className="hd no-print" style={{ alignItems: 'center' }}>
+          <div><div className="hi">للطبيب المختص</div><h1 className="nm">تقرير الدورة</h1></div>
+          <button className="tbtn" onClick={() => this.go('tools')}>‹</button>
+        </div>
+        <div className="card">
+          <div className="ttl">ملخّص لـ {s.wife}</div>
+          <div className="info">
+            <div className="irow"><div className="ib bp">📅</div><div><div className="it">تاريخ آخر دورة</div><div className="iv">{this.arShort(c.last)}</div></div></div>
+            <div className="irow"><div className="ib bf">🔄</div><div><div className="it">طول الدورة / متوسطها</div><div className="iv">{s.cycleLength} يوم • متوسط {avg}</div></div></div>
+            <div className="irow"><div className="ib bo">🩸</div><div><div className="it">أيام الدورة</div><div className="iv">{s.periodLength} أيام</div></div></div>
+            <div className="irow"><div className="ib bo">🌸</div><div><div className="it">التبويض المُقدّر</div><div className="iv">{this.arShort(ovE.date)} ({ovE.source === 'lh' ? 'اختبار LH' : ovE.source === 'bbt' ? 'الحرارة' : 'تقويم'})</div></div></div>
+            <div className="irow"><div className="ib bf">📊</div><div><div className="it">أطوال الدورات السابقة</div><div className="iv">{h.length ? h.join('، ') + ' يوم' : '—'}</div></div></div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="ttl">آخر ٦٠ يومًا</div>
+          <div className="info">
+            <div className="irow"><div className="ib bp">💞</div><div><div className="it">مرات الجماع المسجّلة</div><div className="iv">{inti}</div></div></div>
+            <div className="irow"><div className="ib bo">🧪</div><div><div className="it">اختبارات تبويض إيجابية</div><div className="iv">{ovPos}</div></div></div>
+            <div className="irow"><div className="ib bf">🤍</div><div><div className="it">اختبارات الحمل</div><div className="iv">{pregLogs.length ? pregLogs.join(' • ') : '—'}</div></div></div>
+            <div className="irow"><div className="ib bo">🌡</div><div><div className="it">قياسات الحرارة</div><div className="iv" style={{ fontSize: 12 }}>{bbts.length ? bbts.slice(0, 8).join(' • ') : '—'}</div></div></div>
+          </div>
+        </div>
+        <div className="note no-print">💡 <div>اضغطي «طباعة / حفظ PDF» لحفظ التقرير ومشاركته مع الطبيب في الزيارة.</div></div>
+        <button className="qbtn no-print" onClick={() => this.printReport()}>🖨️ طباعة / حفظ PDF</button>
       </div>
     )
   }
