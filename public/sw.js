@@ -1,7 +1,7 @@
 // خدمة العمل دون اتصال — أيام تبويض رويدا
 // Network-first for the app shell (so deployments reach users immediately),
 // stale-while-revalidate for hashed JS/CSS assets (immutable, safe to cache).
-const CACHE = 'rweida-v6';
+const CACHE = 'rweida-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -44,8 +44,8 @@ self.addEventListener('push', (e) => {
   let d = { title: 'أيام تبويض رويدا', body: '' };
   try { if (e.data) d = Object.assign(d, e.data.json()); } catch (x) {}
   const realBody = d.body || '';
-  // إن وُسمت الرسالة بأنها علنية (hide=false) تُعرض كما هي، وإلا يُخفى النص خلف تلميح.
-  const shown = (d.hide === false) ? realBody : (d.teaser || 'اضغطي لقراءة الرسالة 🤍');
+  // النص ظاهر دائمًا، إلا إذا طُلب إخفاؤه صراحةً (hide=true).
+  const shown = (d.hide === true) ? (d.teaser || 'اضغطي لقراءة الرسالة 🤍') : realBody;
   e.waitUntil(self.registration.showNotification(d.title, {
     body: shown, icon: './icon-192.png', badge: './icon-192.png',
     dir: 'rtl', lang: 'ar', data: { realBody: realBody, title: d.title }
