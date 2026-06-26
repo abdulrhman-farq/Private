@@ -684,6 +684,7 @@ export default class App extends React.Component {
             {g.isSet && this.renderSettings()}
             {this.state.screen === 'us' && this.renderUs(g)}
             {this.state.screen === 'more' && this.renderMore(g)}
+            {this.state.screen === 'cycle' && this.renderCycleDetails(g)}
             {this.state.screen === 'tools' && this.renderTools()}
             {this.state.screen === 'report' && this.renderReport()}
           </div>
@@ -701,74 +702,47 @@ export default class App extends React.Component {
     )
   }
 
+  dailyEncouragement() {
+    const a = [
+      '🤲 اللهم ارزقهما ذريةً صالحةً تقرّ بها أعينهما.',
+      '🌷 كل يوم تقتربان فيه من حلمكما خطوة — توكّلا على الله.',
+      '💗 الحبّ والصبر أساس الرحلة الجميلة، وأنتما معًا أقوى.',
+      '🤍 خير الأمور التوكّل على الله بعد الأخذ بالأسباب.',
+      '✨ لا تيأسا من رحمة الله، فرزقه يأتي في أحسن وقت.',
+      '🌿 الطمأنينة والراحة النفسية تقرّبان الخير بإذن الله.',
+      '🤲 «ربِّ هب لي من لدنك ذريةً طيبة إنك سميع الدعاء».',
+    ]
+    return a[this.dayOfYear(new Date()) % a.length]
+  }
+
   renderHome(g) {
     if (this.pregActive()) return this.renderPregnancy(g)
     const v = this.rvHome()
     const tww = this.twwInfo()
-    const nextOcc = this.occasionsView()[0]
+    const topTip = v.smartTips && v.smartTips[0]
+    const apptSoon = this.apptsView().find(a => !a.past && (a.when === 'اليوم' || a.when === 'بكرة'))
+    const showPreg = v.pregAlert.show
+    const showPeriod = !showPreg && v.periodPrompt.show
+    const showAppt = !showPreg && !showPeriod && apptSoon
+    const showTww = !showPreg && !showPeriod && !showAppt && tww.show
     return (
       <div className="screen">
         <div className="hd">
           <div><div className="hi">{v.todayLabel}</div><h1 className="nm">{v.greeting} 🤍</h1></div>
           <button className="tbtn" onClick={g.goSettings}>⚙</button>
         </div>
-        {tww.show && (
-          <div className="card">
-            <div className="ttl">⏳ الأسبوعان بعد التبويض — اليوم {tww.day} من 14</div>
-            <div className="track" style={{ height: 8, borderRadius: 6, background: 'var(--track)', overflow: 'hidden', margin: '4px 0 10px' }}>
-              <div style={{ width: tww.pct + '%', height: '100%', background: 'var(--grad)' }}></div>
-            </div>
-            <p className="selsum" style={{ margin: 0 }}>{tww.msg}</p>
-          </div>
-        )}
-        {nextOcc && (
-          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-            <div style={{ fontSize: 30 }}>{nextOcc.emoji}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 700 }}>{nextOcc.label}</div>
-              <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 2 }}>{nextOcc.dateLabel} • {nextOcc.when}</div>
-            </div>
-            <button className="opt" style={{ flex: '0 0 auto', padding: '8px 12px' }} onClick={() => this.go('tools')}>الكل</button>
-          </div>
-        )}
+
         {!this.identity && (
           <div className="card">
             <div className="ttl">مين يستخدم هذا الجهاز؟</div>
-            <p className="selsum">اختاري هويتك ليظهر للطرف الآخر مين عدّل البيانات.</p>
             <div className="opts">
               <button className="opt" onClick={() => this.setIdentity('husband')}>👨 {this.data.settings.husband}</button>
               <button className="opt onp" onClick={() => this.setIdentity('wife')}>👩 {this.data.settings.wife}</button>
             </div>
           </div>
         )}
-        {v.smartTips && v.smartTips.length > 0 && (
-          <div className="card">
-            <div className="ttl">💡 ملاحظات ذكية</div>
-            {v.smartTips.map((t, i) => (
-              <div key={i} className="smarttip"><span className="se">{t.icon}</span><span>{t.text}</span></div>
-            ))}
-          </div>
-        )}
-        {v.pregAlert.show && (
-          <div className="card" style={{ animation: 'pop .3s' }}>
-            <div className="alert good" style={{ marginBottom: 13 }}><div className="ae">🎉</div><div><div className="at">مبروك!</div><div className="ax">{v.pregAlert.msg}</div></div></div>
-            <button className="qbtn" onClick={() => this.setPregnancy(true)}>🤰 تفعيل وضع متابعة الحمل</button>
-          </div>
-        )}
-        {v.lateAlert.show && (
-          <div className="alert"><div className="ae">🤍</div><div><div className="at">قد يكون موعد اختبار الحمل</div><div className="ax">{v.lateAlert.msg}</div></div></div>
-        )}
-        {v.periodPrompt.show && (
-          <div className="card">
-            <div className="ttl">{v.periodPrompt.title}</div>
-            <p className="selsum">هل بدأت دورتكِ فعلًا؟ أكّدي ليُعاد حساب أيام التبويض والخصوبة بدقّة.</p>
-            <button className="qbtn" onClick={v.confirmToday}>🩸 نعم، بدأت اليوم</button>
-            <div className="fld" style={{ marginTop: 13 }}>
-              <span style={{ fontSize: 13, color: 'var(--ink2)' }}>أو اختاري يوم البداية</span>
-              <input className="datein" type="date" value="" onChange={v.confirmOnDate} />
-            </div>
-          </div>
-        )}
+
+        {/* ١) بطاقة البطل — أهم شيء اليوم */}
         <div className="card">
           <div className="ringwrap">
             <div className="ring" style={{ background: v.ringStyle }}>
@@ -778,11 +752,63 @@ export default class App extends React.Component {
             <div className={v.phasePill} style={{ marginTop: 14 }}><span className="dot"></span>{v.phaseLabel}</div>
           </div>
           <div className="status">
-            <h2>{v.statusTitle}</h2><p>{v.statusDesc}</p>
+            <h2>{v.statusTitle}</h2>
             <div className="chance">احتمالية الحمل اليوم: <b>{v.chancePct}%</b> · {v.chanceLabel}</div>
-            {v.ovEstSmart && <div className="chance" style={{ marginTop: 6, color: 'var(--fertile)' }}>🎯 التبويض المُقدّر من بياناتك: <b>{v.ovEstLabel}</b> ({v.ovEstSrc})</div>}
           </div>
+          {topTip && <div className="herohint"><span className="se">{topTip.icon}</span><span>{topTip.text}</span></div>}
+          <button className="qbtn" style={{ marginTop: 14 }} onClick={g.goLog}>＋ تسجيل اليوم</button>
+          <button className="linkbtn" onClick={() => this.go('cycle')}>تفاصيل الدورة ‹</button>
         </div>
+
+        {/* ٢) نصيحة اليوم */}
+        <div className="card">
+          <div className="tip"><div className="te">💡</div><div><div className="tt">نصيحة اليوم</div><div className="tx">{v.dailyTip}</div></div></div>
+        </div>
+
+        {/* ٣) تنبيه مهم — يظهر فقط عند الحاجة */}
+        {showPreg && (
+          <div className="card" style={{ animation: 'pop .3s' }}>
+            <div className="alert good" style={{ marginBottom: 13 }}><div className="ae">🎉</div><div><div className="at">مبروك!</div><div className="ax">{v.pregAlert.msg}</div></div></div>
+            <button className="qbtn" onClick={() => this.setPregnancy(true)}>🤰 تفعيل وضع متابعة الحمل</button>
+          </div>
+        )}
+        {showPeriod && (
+          <div className="card">
+            <div className="ttl">{v.periodPrompt.title}</div>
+            <p className="selsum">هل بدأت دورتكِ فعلًا؟ أكّدي ليُعاد حساب التبويض والخصوبة بدقّة.</p>
+            <button className="qbtn" onClick={v.confirmToday}>🩸 نعم، بدأت اليوم</button>
+            <div className="fld" style={{ marginTop: 13 }}>
+              <span style={{ fontSize: 13, color: 'var(--ink2)' }}>أو اختاري يوم البداية</span>
+              <input className="datein" type="date" value="" onChange={v.confirmOnDate} />
+            </div>
+          </div>
+        )}
+        {showAppt && (
+          <div className="alert"><div className="ae">🩺</div><div><div className="at">{apptSoon.when === 'اليوم' ? 'موعدكم اليوم' : 'تذكير موعد بكرة'}</div><div className="ax">{apptSoon.type}{apptSoon.note ? ' — ' + apptSoon.note : ''}</div></div></div>
+        )}
+        {showTww && (
+          <div className="card">
+            <div className="ttl">⏳ الأسبوعان بعد التبويض — اليوم {tww.day} من 14</div>
+            <div className="track" style={{ height: 8, borderRadius: 6, background: 'var(--track)', overflow: 'hidden', margin: '4px 0 10px' }}>
+              <div style={{ width: tww.pct + '%', height: '100%', background: 'var(--grad)' }}></div>
+            </div>
+            <p className="selsum" style={{ margin: 0 }}>{tww.msg}</p>
+          </div>
+        )}
+
+        {/* ٤) رسالة لطيفة / دعاء */}
+        <div className="note" style={{ marginTop: 4 }}>{this.dailyEncouragement()}</div>
+      </div>
+    )
+  }
+
+  renderCycleDetails(g) {
+    const v = this.rvHome()
+    const tww = this.twwInfo()
+    return (
+      <div className="screen">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">نظرة تفصيلية</div><h1 className="nm">تفاصيل الدورة</h1></div><button className="tbtn" onClick={() => this.go('home')}>‹</button></div>
+        {v.ovEstSmart && <div className="note" style={{ background: 'var(--fertile-s)', color: 'var(--fertile)', marginBottom: 15 }}>🎯 <div>التبويض المُقدّر من بياناتكِ: <b>{v.ovEstLabel}</b> ({v.ovEstSrc})</div></div>}
         <div className="ttl">العد التنازلي</div>
         <div className="cd3">
           <div className="cdc o"><div className="cv">{v.cdOvu}</div><div className="cu">{v.cdOvuW}</div><div className="ck">على التبويض</div></div>
@@ -800,15 +826,16 @@ export default class App extends React.Component {
         <div className="card">
           <div className="ttl">أفضل أيام الجماع</div>
           <div className="best">
-            {v.bestDays.map(b => (
-              <div key={b.key} className={b.cls}><div className="bdv">{b.label}</div><div className="bdt">{b.tag}</div></div>
-            ))}
+            {v.bestDays.map(b => (<div key={b.key} className={b.cls}><div className="bdv">{b.label}</div><div className="bdt">{b.tag}</div></div>))}
           </div>
         </div>
-        <div className="card">
-          <div className="tip"><div className="te">💡</div><div><div className="tt">نصيحة اليوم</div><div className="tx">{v.dailyTip}</div></div></div>
-        </div>
-        <button className="qbtn" onClick={g.goLog}>＋ تسجيل اليوم</button>
+        {tww.show && (
+          <div className="card">
+            <div className="ttl">⏳ الأسبوعان بعد التبويض — اليوم {tww.day} من 14</div>
+            <div className="track" style={{ height: 8, borderRadius: 6, background: 'var(--track)', overflow: 'hidden', margin: '4px 0 10px' }}><div style={{ width: tww.pct + '%', height: '100%', background: 'var(--grad)' }}></div></div>
+            <p className="selsum" style={{ margin: 0 }}>{tww.msg}</p>
+          </div>
+        )}
       </div>
     )
   }
