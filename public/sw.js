@@ -1,7 +1,7 @@
 // خدمة العمل دون اتصال — أيام تبويض رويدا
 // Network-first for the app shell (so deployments reach users immediately),
 // stale-while-revalidate for hashed JS/CSS assets (immutable, safe to cache).
-const CACHE = 'rweida-v5';
+const CACHE = 'rweida-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -24,11 +24,12 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// عند الضغط على الإشعار: افتح التطبيق واعرض الرسالة كاملة.
+// عند الضغط على الإشعار: افتح التطبيق واعرض الرسالة كاملة (حتى لو كان النص مخفيًا).
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const title = e.notification.title || '';
-  const body = e.notification.body || '';
+  const data = e.notification.data || {};
+  const title = data.title || e.notification.title || '';
+  const body = data.realBody || e.notification.body || '';
   e.waitUntil((async () => {
     const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of list) {
@@ -38,11 +39,17 @@ self.addEventListener('notificationclick', (e) => {
   })());
 });
 
-// عرض الإشعار القادم من الخادم.
+// عرض الإشعار القادم من الخادم — يُخفى النص ولا يظهر إلا عند فتح التطبيق (خصوصية).
 self.addEventListener('push', (e) => {
   let d = { title: 'أيام تبويض رويدا', body: '' };
   try { if (e.data) d = Object.assign(d, e.data.json()); } catch (x) {}
-  e.waitUntil(self.registration.showNotification(d.title, { body: d.body, icon: './icon-192.png', badge: './icon-192.png', dir: 'rtl', lang: 'ar', data: d }));
+  const realBody = d.body || '';
+  // إن وُسمت الرسالة بأنها علنية (hide=false) تُعرض كما هي، وإلا يُخفى النص خلف تلميح.
+  const shown = (d.hide === false) ? realBody : (d.teaser || 'اضغطي لقراءة الرسالة 🤍');
+  e.waitUntil(self.registration.showNotification(d.title, {
+    body: shown, icon: './icon-192.png', badge: './icon-192.png',
+    dir: 'rtl', lang: 'ar', data: { realBody: realBody, title: d.title }
+  }));
 });
 
 self.addEventListener('fetch', (e) => {
