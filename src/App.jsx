@@ -80,7 +80,7 @@ export default class App extends React.Component {
     this._t = setTimeout(() => {
       if (this.state.screen === 'splash') this.setState({ screen: 'home' })
     }, 2300)
-    this.syncFromCloud()
+    this.syncFromCloud().then(() => { if (this.migrate()) this.scheduleCloud() })
     // تحديث حيّ: استقطاب دوري + عند العودة للتطبيق، فيظهر تعديل الطرف الآخر تلقائيًا.
     this._poll = setInterval(() => this.pollCloud(), 15000)
     this._onVis = () => { try { if (!document.hidden) { this.pollCloud(); this.maybeNotify() } } catch (e) { this.pollCloud() } }
@@ -228,6 +228,7 @@ export default class App extends React.Component {
     if (!Array.isArray(d.appointments)) { d.appointments = []; changed = true }
     if (!s.vitamins) { s.vitamins = { on: true, hour: 21 }; changed = true }
     if (changed) this.persist(d)
+    return changed
   }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
   save(d) { d = { ...d, updatedAt: new Date().toISOString(), editedBy: this.identity }; this.persist(d); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud() }
