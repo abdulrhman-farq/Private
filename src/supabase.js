@@ -37,6 +37,10 @@ export async function deleteCustomMessage(key, id) {
 export async function sendNow(key, text, target) {
   try { const { error } = await supa.functions.invoke('send-now', { body: { key, text, target } }); return !error } catch (e) { return false }
 }
+// نبضة شوق (دفعة قلوب) للطرف الآخر.
+export async function sendNudge(key, target, style) {
+  try { const { error } = await supa.functions.invoke('nudge', { body: { key, target, style: style || 'hearts' } }); return !error } catch (e) { return false }
+}
 
 // تحميل بيانات رمز المزامنة من السحابة (أو null إن لم توجد / عند الخطأ).
 export async function cloudLoad(key) {

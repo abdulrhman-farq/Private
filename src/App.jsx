@@ -1,5 +1,5 @@
 import React from 'react'
-import { cloudLoad, cloudSave, pushSubscribe, addCustomMessage, listCustomMessages, deleteCustomMessage, sendNow, SHARED_KEY, VAPID_PUBLIC } from './supabase.js'
+import { cloudLoad, cloudSave, pushSubscribe, addCustomMessage, listCustomMessages, deleteCustomMessage, sendNow, sendNudge, SHARED_KEY, VAPID_PUBLIC } from './supabase.js'
 
 // أيام تبويض رويدا — faithful React port of the Claude Design prototype.
 // All cycle math, seeding and localStorage persistence mirror the original 1:1.
@@ -75,6 +75,12 @@ export default class App extends React.Component {
     })
   }
   delCustom(id) { this.hap(); deleteCustomMessage(this.syncKey, id).then(() => this.loadCustoms()) }
+  nudgePartner() {
+    const partner = this.identity === 'husband' ? 'wife' : 'husband'
+    if (!this.identity) { this.go('us'); if (typeof alert === 'function') alert('اختاري صاحب الجهاز أولًا من «نحن».'); return }
+    this.hap(); this.showToast('💗 أُرسلت نبضة شوق لـ ' + this.identityView(partner).name)
+    sendNudge(this.syncKey, partner, 'hearts')
+  }
 
   componentDidMount() {
     this._t = setTimeout(() => {
@@ -269,7 +275,7 @@ export default class App extends React.Component {
   arMonth(y, m) { return new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { month: 'long', year: 'numeric' }).format(new Date(y, m, 1)) }
 
   // ---- navigation & mutations ----
-  go(s) { this.hap(); this.setState({ screen: s, saved: false }); if (s === 'settings') this.loadCustoms() }
+  go(s) { this.hap(); this.setState({ screen: s, saved: false }); if (s === 'settings' || s === 'us') this.loadCustoms() }
   bumpCycle(n) { const s = { ...this.data.settings }; s.cycleLength = Math.max(21, Math.min(40, s.cycleLength + n)); this.save({ ...this.data, settings: s }) }
   bumpPeriod(n) { const s = { ...this.data.settings }; s.periodLength = Math.max(2, Math.min(10, s.periodLength + n)); this.save({ ...this.data, settings: s }) }
   setLast(v) { if (!v) return; const s = { ...this.data.settings, lastPeriod: v }; this.save({ ...this.data, settings: s }) }
@@ -463,9 +469,10 @@ export default class App extends React.Component {
     return {
       themeClass: dark ? 'dark' : '', isSplash: sc === 'splash', showNav: sc !== 'splash',
       isHome: sc === 'home', isCal: sc === 'calendar', isLog: sc === 'log', isStats: sc === 'stats', isSet: sc === 'settings',
-      navHomeCls: nc('home'), navCalCls: nc('calendar'), navStatsCls: nc('stats'), navSetCls: nc('settings'),
+      navHomeCls: nc('home'), navCalCls: nc('calendar'), navUsCls: nc('us'), navMoreCls: nc('more'),
       dismissSplash: () => this.setState({ screen: 'home' }),
       goHome: () => this.go('home'), goCalendar: () => this.go('calendar'), goLog: () => this.go('log'), goStats: () => this.go('stats'), goSettings: () => this.go('settings'),
+      goUs: () => this.go('us'), goMore: () => this.go('more'),
       sync: this.syncView(), meEmoji: this.identity ? this.identityView(this.identity).emoji : '',
     }
   }
@@ -675,6 +682,8 @@ export default class App extends React.Component {
             {g.isLog && this.renderLog()}
             {g.isStats && this.renderStats()}
             {g.isSet && this.renderSettings()}
+            {this.state.screen === 'us' && this.renderUs(g)}
+            {this.state.screen === 'more' && this.renderMore(g)}
             {this.state.screen === 'tools' && this.renderTools()}
             {this.state.screen === 'report' && this.renderReport()}
           </div>
@@ -683,8 +692,8 @@ export default class App extends React.Component {
               <button className={g.navHomeCls} onClick={g.goHome}><span className="ic">◐</span>الرئيسية</button>
               <button className={g.navCalCls} onClick={g.goCalendar}><span className="ic">▦</span>التقويم</button>
               <button className="add" onClick={g.goLog}><span className="ic">+</span></button>
-              <button className={g.navStatsCls} onClick={g.goStats}><span className="ic">◔</span>الإحصائيات</button>
-              <button className={g.navSetCls} onClick={g.goSettings}><span className="ic">⚙</span>الإعدادات</button>
+              <button className={g.navUsCls} onClick={g.goUs}><span className="ic">♥</span>نحن</button>
+              <button className={g.navMoreCls} onClick={g.goMore}><span className="ic">☰</span>المزيد</button>
             </div>
           )}
         </div>
@@ -943,7 +952,7 @@ export default class App extends React.Component {
     const v = this.rvStats()
     return (
       <div className="screen">
-        <div className="hd"><div><div className="hi">اعرفي نمط دورتكِ</div><h1 className="nm">الإحصائيات</h1></div></div>
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">اعرفي نمط دورتكِ</div><h1 className="nm">الإحصائيات</h1></div><button className="tbtn" onClick={() => this.go('more')}>‹</button></div>
         <div className="mini">
           <div className="mc"><div className="mv">{v.avgCycle}</div><div className="ml">متوسط طول الدورة (يوم)</div></div>
           <div className="mc"><div className="mv">{v.avgPeriod}</div><div className="ml">متوسط أيام الدورة</div></div>
@@ -993,7 +1002,7 @@ export default class App extends React.Component {
     const v = this.rvSet()
     return (
       <div className="screen">
-        <div className="hd"><div><div className="hi">خصّصي تجربتكِ</div><h1 className="nm">الإعدادات</h1></div></div>
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">خصّصي تجربتكِ</div><h1 className="nm">الإعدادات</h1></div><button className="tbtn" onClick={() => this.go('more')}>‹</button></div>
         <div className="card"><div className="couple"><div className="ch">{v.coupleLabel} 🤍</div><div className="cs">رحلة الحمل تبدأ بالتخطيط معًا</div></div></div>
         <div className="card">
           <div className="ttl">بيانات الدورة</div>
@@ -1027,66 +1036,9 @@ export default class App extends React.Component {
             </div>
           ))}
         </div>
-        <button className="qbtn" style={{ marginBottom: 15 }} onClick={v.openTools}>🗂️ أدوات ومناسبات ومواعيد</button>
         <div className="card">
           <div className="ttl">وضع متابعة الحمل 🤰</div>
           <div className="srow"><div className="sl"><div className="si2">🤰</div>{v.pregOn ? 'مفعّل — متابعة الحمل' : 'تفعيل عند ثبوت الحمل'}</div><button className={'sw' + (v.pregOn ? ' on' : '')} onClick={v.togglePreg}></button></div>
-        </div>
-        <div className="card">
-          <div className="ttl">💌 رسائل مخصّصة</div>
-          <p className="selsum">اكتبي رسالة (أو عدة رسائل، كل سطر رسالة)، وحدّدي كم مرة تُرسل وخلال كم يوم — وتُرسل كإشعارات تلقائيًا.</p>
-          <textarea className="area" placeholder="اكتبي رسالتك هنا... (كل سطر = رسالة)" value={v.cmText} onChange={v.onCmText} />
-          <div className="lbl" style={{ marginTop: 12 }}>نوع الإرسال</div>
-          <div className="opts">
-            <button className={'opt' + (v.cmMode === 'spread' ? ' on' : '')} onClick={() => v.setCmMode('spread')}>🔁 متكرر</button>
-            <button className={'opt' + (v.cmMode === 'once' ? ' on' : '')} onClick={() => v.setCmMode('once')}>1️⃣ مرة واحدة</button>
-          </div>
-          {v.cmMode === 'spread' ? (
-            <>
-              <div className="fld" style={{ marginTop: 12 }}>
-                <span style={{ fontSize: 13, color: 'var(--ink2)' }}>كم مرة تتكرر</span>
-                <input className="num" type="number" min="1" max="200" value={v.cmTimes} onChange={v.onCmTimes} />
-              </div>
-              <div className="fld" style={{ marginTop: 10 }}>
-                <span style={{ fontSize: 13, color: 'var(--ink2)' }}>خلال كم يوم</span>
-                <input className="num" type="number" min="1" max="60" value={v.cmDays} onChange={v.onCmDays} />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="lbl" style={{ marginTop: 12 }}>متى تُرسل</div>
-              <div className="opts">
-                <button className={'opt' + (v.cmWhen === 'now' ? ' on' : '')} onClick={() => v.setCmWhen('now')}>⚡ الآن</button>
-                <button className={'opt' + (v.cmWhen === 'hour' ? ' on' : '')} onClick={() => v.setCmWhen('hour')}>🕐 ساعة محددة</button>
-              </div>
-              {v.cmWhen === 'hour' && (
-                <div className="fld" style={{ marginTop: 10 }}>
-                  <span style={{ fontSize: 13, color: 'var(--ink2)' }}>الساعة (٠–٢٣ بتوقيت الرياض)</span>
-                  <input className="num" type="number" min="0" max="23" value={v.cmHour} onChange={v.onCmHour} />
-                </div>
-              )}
-            </>
-          )}
-          <div className="lbl" style={{ marginTop: 12 }}>تُرسل إلى</div>
-          <div className="opts">
-            <button className={'opt' + (v.cmTarget === 'wife' ? ' on' : '')} onClick={() => v.setCmTarget('wife')}>👩 رويدا</button>
-            <button className={'opt' + (v.cmTarget === 'husband' ? ' on' : '')} onClick={() => v.setCmTarget('husband')}>👨 عبدالرحمن</button>
-            <button className={'opt' + (v.cmTarget === 'both' ? ' on' : '')} onClick={() => v.setCmTarget('both')}>👫 الاثنين</button>
-          </div>
-          <button className="qbtn" style={{ marginTop: 14 }} onClick={v.addCustoms}>➕ إضافة</button>
-          {v.customs.length > 0 && (
-            <div style={{ marginTop: 14 }}>
-              {v.customs.map(c => (
-                <div key={c.id} className="srow">
-                  <div className="sl" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{c.text}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{c.targetLabel} • {c.progress}</div>
-                  </div>
-                  <button className="opt" style={{ flex: '0 0 auto', padding: '8px 12px', color: 'var(--rose-d)' }} onClick={c.del}>حذف</button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
         <div className="card">
           <div className="ttl">المظهر</div>
@@ -1110,30 +1062,13 @@ export default class App extends React.Component {
   }
 
   renderTools() {
-    const occs = this.occasionsView()
     const appts = this.apptsView()
     const tips = this.nutritionTips()
     return (
       <div className="screen">
         <div className="hd" style={{ alignItems: 'center' }}>
-          <div><div className="hi">كل شيء في مكان واحد</div><h1 className="nm">أدوات ومناسبات</h1></div>
-          <button className="tbtn" onClick={() => this.go('home')}>‹</button>
-        </div>
-
-        <div className="card">
-          <div className="ttl">🎉 مناسباتكم</div>
-          {occs.map(o => (
-            <div key={o.id} className="srow">
-              <div className="sl"><div className="si2">{o.emoji}</div><div><div style={{ fontWeight: 600 }}>{o.label}</div><div style={{ fontSize: 11, color: 'var(--ink2)' }}>{o.dateLabel} • {o.when}</div></div></div>
-              <button className="opt" style={{ flex: '0 0 auto', padding: '7px 11px', color: 'var(--rose-d)' }} onClick={() => this.delOccasion(o.id)}>حذف</button>
-            </div>
-          ))}
-          <div className="lbl" style={{ marginTop: 12 }}>إضافة مناسبة</div>
-          <input className="area" style={{ minHeight: 0, padding: '12px 13px', marginBottom: 8 }} placeholder="اسم المناسبة" value={this.state.occLabel} onChange={e => this.setState({ occLabel: e.target.value })} />
-          <div className="fld">
-            <input className="datein" type="date" value={this.state.occDateV} onChange={e => this.setState({ occDateV: e.target.value })} style={{ flex: 1, minWidth: 0 }} />
-            <button className="opt" style={{ flex: '0 0 auto', padding: '11px 16px' }} onClick={() => this.addOccasion(this.state.occLabel, this.state.occDateV)}>إضافة</button>
-          </div>
+          <div><div className="hi">مواعيد · تغذية · تقرير</div><h1 className="nm">الأدوات</h1></div>
+          <button className="tbtn" onClick={() => this.go('more')}>‹</button>
         </div>
 
         <div className="card">
@@ -1208,6 +1143,103 @@ export default class App extends React.Component {
         </div>
         <div className="note no-print">💡 <div>اضغطي «طباعة / حفظ PDF» لحفظ التقرير ومشاركته مع الطبيب في الزيارة.</div></div>
         <button className="qbtn no-print" onClick={() => this.printReport()}>🖨️ طباعة / حفظ PDF</button>
+      </div>
+    )
+  }
+
+  renderUs(g) {
+    const v = this.rvSet()
+    const occs = this.occasionsView()
+    const partnerName = this.identity === 'wife' ? this.data.settings.husband : this.data.settings.wife
+    return (
+      <div className="screen">
+        <div className="hd"><div><div className="hi">رحلتكما معًا</div><h1 className="nm">نحن 💞</h1></div></div>
+
+        <button className="qbtn" style={{ marginBottom: 16, fontSize: 16, padding: 18 }} onClick={() => this.nudgePartner()}>💗 نبضة شوق{partnerName ? ' لـ ' + partnerName : ''}</button>
+
+        <div className="card">
+          <div className="ttl">💌 رسالة</div>
+          <p className="selsum">اكتبي رسالة (أو عدة أسطر)، حدّدي متى تُرسل ولمن — تصل كإشعار.</p>
+          <textarea className="area" placeholder="اكتبي رسالتك هنا... (كل سطر = رسالة)" value={v.cmText} onChange={v.onCmText} />
+          <div className="lbl" style={{ marginTop: 12 }}>نوع الإرسال</div>
+          <div className="opts">
+            <button className={'opt' + (v.cmMode === 'spread' ? ' on' : '')} onClick={() => v.setCmMode('spread')}>🔁 متكرر</button>
+            <button className={'opt' + (v.cmMode === 'once' ? ' on' : '')} onClick={() => v.setCmMode('once')}>1️⃣ مرة واحدة</button>
+          </div>
+          {v.cmMode === 'spread' ? (
+            <>
+              <div className="fld" style={{ marginTop: 12 }}><span style={{ fontSize: 13, color: 'var(--ink2)' }}>كم مرة تتكرر</span><input className="num" type="number" min="1" max="200" value={v.cmTimes} onChange={v.onCmTimes} /></div>
+              <div className="fld" style={{ marginTop: 10 }}><span style={{ fontSize: 13, color: 'var(--ink2)' }}>خلال كم يوم</span><input className="num" type="number" min="1" max="60" value={v.cmDays} onChange={v.onCmDays} /></div>
+            </>
+          ) : (
+            <>
+              <div className="lbl" style={{ marginTop: 12 }}>متى تُرسل</div>
+              <div className="opts">
+                <button className={'opt' + (v.cmWhen === 'now' ? ' on' : '')} onClick={() => v.setCmWhen('now')}>⚡ الآن</button>
+                <button className={'opt' + (v.cmWhen === 'hour' ? ' on' : '')} onClick={() => v.setCmWhen('hour')}>🕐 ساعة محددة</button>
+              </div>
+              {v.cmWhen === 'hour' && (<div className="fld" style={{ marginTop: 10 }}><span style={{ fontSize: 13, color: 'var(--ink2)' }}>الساعة (٠–٢٣)</span><input className="num" type="number" min="0" max="23" value={v.cmHour} onChange={v.onCmHour} /></div>)}
+            </>
+          )}
+          <div className="lbl" style={{ marginTop: 12 }}>تُرسل إلى</div>
+          <div className="opts">
+            <button className={'opt' + (v.cmTarget === 'wife' ? ' on' : '')} onClick={() => v.setCmTarget('wife')}>👩 {this.data.settings.wife}</button>
+            <button className={'opt' + (v.cmTarget === 'husband' ? ' on' : '')} onClick={() => v.setCmTarget('husband')}>👨 {this.data.settings.husband}</button>
+            <button className={'opt' + (v.cmTarget === 'both' ? ' on' : '')} onClick={() => v.setCmTarget('both')}>👫 الاثنين</button>
+          </div>
+          <button className="qbtn" style={{ marginTop: 14 }} onClick={v.addCustoms}>➕ إضافة</button>
+          {v.customs.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              {v.customs.map(c => (
+                <div key={c.id} className="srow">
+                  <div className="sl" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{c.text}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink2)' }}>{c.targetLabel} • {c.progress}</div>
+                  </div>
+                  <button className="opt" style={{ flex: '0 0 auto', padding: '8px 12px', color: 'var(--rose-d)' }} onClick={c.del}>حذف</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <div className="ttl">🎉 مناسباتكم</div>
+          {occs.map(o => (
+            <div key={o.id} className="srow">
+              <div className="sl"><div className="si2">{o.emoji}</div><div><div style={{ fontWeight: 600 }}>{o.label}</div><div style={{ fontSize: 11, color: 'var(--ink2)' }}>{o.dateLabel} • {o.when}</div></div></div>
+              <button className="opt" style={{ flex: '0 0 auto', padding: '7px 11px', color: 'var(--rose-d)' }} onClick={() => this.delOccasion(o.id)}>حذف</button>
+            </div>
+          ))}
+          <div className="lbl" style={{ marginTop: 12 }}>إضافة مناسبة</div>
+          <input className="area" style={{ minHeight: 0, padding: '12px 13px', marginBottom: 8 }} placeholder="اسم المناسبة" value={this.state.occLabel} onChange={e => this.setState({ occLabel: e.target.value })} />
+          <div className="fld">
+            <input className="datein" type="date" value={this.state.occDateV} onChange={e => this.setState({ occDateV: e.target.value })} style={{ flex: 1, minWidth: 0 }} />
+            <button className="opt" style={{ flex: '0 0 auto', padding: '11px 16px' }} onClick={() => this.addOccasion(this.state.occLabel, this.state.occDateV)}>إضافة</button>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="ttl">👫 إعدادات الزوجين</div>
+          <div className="lbl">صاحب هذا الجهاز</div>
+          <div className="opts">
+            <button className={'opt' + (this.identity === 'husband' ? ' on' : '')} onClick={() => this.setIdentity('husband')}>👨 {this.data.settings.husband}</button>
+            <button className={'opt' + (this.identity === 'wife' ? ' onp' : '')} onClick={() => this.setIdentity('wife')}>👩 {this.data.settings.wife}</button>
+          </div>
+          {v.lastEdit && <div className="srow" style={{ marginTop: 8 }}><div className="sl"><div className="si2">✏️</div>آخر تعديل بواسطة</div><div style={{ fontSize: 13, fontWeight: 700 }}>{v.lastEdit}</div></div>}
+        </div>
+      </div>
+    )
+  }
+
+  renderMore(g) {
+    return (
+      <div className="screen">
+        <div className="hd"><div><div className="hi">أدوات وإعدادات</div><h1 className="nm">المزيد ☰</h1></div></div>
+        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('stats')}>📊 الإحصائيات<span className="yn">›</span></button>
+        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('tools')}>🩺 الأدوات (مواعيد · تغذية · تقرير)<span className="yn">›</span></button>
+        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('settings')}>⚙️ الإعدادات<span className="yn">›</span></button>
+        <div className="note" style={{ marginTop: 6 }}>💡 <div>الرسائل والمناسبات وإعدادات الزوجين انتقلت إلى تبويب «نحن 💞».</div></div>
       </div>
     )
   }
