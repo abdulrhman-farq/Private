@@ -28,7 +28,14 @@ export default class App extends React.Component {
       cmText: '', cmTimes: 5, cmDays: 1, cmTarget: 'wife',
       cmMode: 'spread', cmWhen: 'now', cmHour: 9,
       occLabel: '', occDateV: '', apType: '', apDate: '', apNote: '',
+      sheet: false,
+      locked: false, pinInput: '',
+      obStep: 0,
     }
+    let pin = null; try { pin = localStorage.getItem('rweida_pin') } catch (e) {}
+    if (pin) this.state.locked = true
+    let onb = null; try { onb = localStorage.getItem('rweida_onboarded') } catch (e) {}
+    if (!onb && !this.identity) this.state.obStep = 1
   }
 
   // هوية صاحب الجهاز: 👨 الزوج أو 👩 الزوجة — تُحفظ محليًا لكل جهاز.
@@ -81,6 +88,58 @@ export default class App extends React.Component {
     this.hap(); this.showToast('💗 أُرسلت نبضة شوق لـ ' + this.identityView(partner).name)
     sendNudge(this.syncKey, partner, 'hearts')
   }
+  // ---- التسجيل السريع ----
+  openSheet() { this.hap(); this.setState({ sheet: true, logISO: this.iso(new Date()), saved: false }) }
+  closeSheet() { this.hap(); this.setState({ sheet: false }) }
+  // ---- قفل PIN ----
+  hasPin() { try { return !!localStorage.getItem('rweida_pin') } catch (e) { return false } }
+  onPinKey(d) { let p = this.state.pinInput || ''; if (d === 'del') p = p.slice(0, -1); else if (p.length < 4) p += d; this.setState({ pinInput: p }); if (p.length === 4 && this.state.locked) setTimeout(() => this.tryUnlock(p), 120) }
+  tryUnlock(p) { let pin = null; try { pin = localStorage.getItem('rweida_pin') } catch (e) {} if (p === pin) this.setState({ locked: false, pinInput: '' }); else { this.hap(); this.setState({ pinInput: '' }) } }
+  setPin() { const p = (this.state.pinInput || '').trim(); if (!/^\d{4}$/.test(p)) { if (typeof alert === 'function') alert('أدخلي ٤ أرقام'); return } try { localStorage.setItem('rweida_pin', p) } catch (e) {} this.hap(); this.setState({ pinInput: '', tick: this.state.tick + 1 }); this.showToast('🔒 تم تفعيل القفل') }
+  removePin() { try { localStorage.removeItem('rweida_pin') } catch (e) {} this.hap(); this.setState({ tick: this.state.tick + 1 }); this.showToast('تم إلغاء القفل') }
+  // ---- التهيئة ----
+  obFinish() { try { localStorage.setItem('rweida_onboarded', '1') } catch (e) {} this.setState({ obStep: 0, screen: 'home' }) }
+  // ---- نسخ احتياطي ----
+  exportData() {
+    try {
+      const blob = new Blob([JSON.stringify(this.data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob), a = document.createElement('a')
+      a.href = url; a.download = 'rweida-backup.json'; a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 2000); this.showToast('✅ تم تصدير نسخة احتياطية')
+    } catch (e) {}
+  }
+  importData(file) {
+    if (!file) return
+    const r = new FileReader()
+    r.onload = () => { try { const d = JSON.parse(r.result); if (d && d.settings) { d.updatedAt = new Date().toISOString(); this.persist(d); this.migrate(); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud(); this.showToast('✅ تم استيراد البيانات') } else if (typeof alert === 'function') alert('ملف غير صالح') } catch (e) { if (typeof alert === 'function') alert('تعذّر قراءة الملف') } }
+    r.readAsText(file)
+  }
+  // ---- صورة الزوجين ----
+  setCouplePhoto(file) {
+    if (!file) return
+    const r = new FileReader()
+    r.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        const cv = document.createElement('canvas'), max = 420; let w = img.width, h = img.height
+        if (w > h) { if (w > max) { h = h * max / w; w = max } } else { if (h > max) { w = w * max / h; h = max } }
+        cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h)
+        this.save({ ...this.data, settings: { ...this.data.settings, couplePhoto: cv.toDataURL('image/jpeg', 0.7) } }); this.showToast('✅ تم تحديث الصورة')
+      }
+      img.src = r.result
+    }
+    r.readAsDataURL(file)
+  }
+  // ---- الإنجازات ----
+  achievements() {
+    const today = new Date(); let streak = 0, total = 0
+    for (let i = 0; i < 400; i++) { const iso = this.iso(this.addDays(today, -i)); if (this.data.logs[iso]) { total++; if (i === streak) streak++ } }
+    const fi = this.fertileIntimacy()
+    return { streak, total, fiInFertile: fi.inFertile, cycles: (this.data.history || []).length }
+  }
+  // ---- صندوق الرسائل (محلي) ----
+  inbox() { try { return JSON.parse(localStorage.getItem('rweida_inbox') || '[]') } catch (e) { return [] } }
+  pushInbox(title, body) { try { const arr = this.inbox(); arr.unshift({ t: title || '', b: body || '', at: Date.now() }); localStorage.setItem('rweida_inbox', JSON.stringify(arr.slice(0, 30))) } catch (e) {} }
 
   componentDidMount() {
     this._t = setTimeout(() => {
@@ -98,11 +157,11 @@ export default class App extends React.Component {
     try {
       const q = new URLSearchParams(window.location.search)
       const n = q.get('n')
-      if (n) { this.setState({ notifMsg: { title: q.get('nt') || '', body: n } }); window.history.replaceState(null, '', window.location.pathname) }
+      if (n) { this.pushInbox(q.get('nt') || '', n); this.setState({ notifMsg: { title: q.get('nt') || '', body: n } }); window.history.replaceState(null, '', window.location.pathname) }
     } catch (e) {}
     try {
       if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', (ev) => {
-        if (ev.data && ev.data.type === 'rweida-notif') this.setState({ notifMsg: { title: ev.data.title || '', body: ev.data.body || '' } })
+        if (ev.data && ev.data.type === 'rweida-notif') { this.pushInbox(ev.data.title || '', ev.data.body || ''); this.setState({ notifMsg: { title: ev.data.title || '', body: ev.data.body || '' } }) }
       })
     } catch (e) {}
   }
@@ -297,7 +356,7 @@ export default class App extends React.Component {
   toggleTheme() { const s = { ...this.data.settings, theme: this.data.settings.theme === 'dark' ? 'light' : 'dark' }; this.hap(); this.save({ ...this.data, settings: s }) }
   toggleRem(k) { const r = { ...this.data.settings.reminders }; r[k] = !r[k]; this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, reminders: r } }) }
   resetAll() { if (typeof confirm === 'function' && !confirm('سيتم حذف جميع البيانات. متابعة؟')) return; try { localStorage.removeItem('rweida_v1') } catch (e) {} const d = this.seed(); d.updatedAt = new Date().toISOString(); this.persist(d); this.setState({ tick: this.state.tick + 1, screen: 'home' }); this.scheduleCloud() }
-  emptyLog() { return { flow: '', symptoms: [], mood: '', intimacy: false, ovTest: '', pregTest: '', bbt: '', note: '' } }
+  emptyLog() { return { flow: '', symptoms: [], mood: '', intimacy: false, ovTest: '', pregTest: '', bbt: '', weight: '', meds: false, note: '' } }
   curLog() { return this.data.logs[this.state.logISO] || this.emptyLog() }
   patchLog(p) { const iso = this.state.logISO, l = { ...this.curLog(), ...p }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.save({ ...this.data, logs }); this.setState({ saved: false }) }
   patchDay(iso, p) { const l = { ...(this.data.logs[iso] || this.emptyLog()), ...p }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.save({ ...this.data, logs }) }
@@ -565,6 +624,8 @@ export default class App extends React.Component {
       logDateLabel: isToday ? 'اليوم • ' + this.arShort(d) : this.arLong(d),
       flowOpts: flows, symOpts: syms, moodOpts: moods, ovOpts: ovs, pregOpts: pregs,
       intimacyTxt: l.intimacy ? 'نعم' : 'لا', intimacyCls: 'bigtog' + (l.intimacy ? ' on' : ''), toggleIntimacy: () => this.patchLog({ intimacy: !l.intimacy }),
+      medsTxt: l.meds ? 'نعم' : 'لا', medsCls: 'bigtog' + (l.meds ? ' on' : ''), toggleMeds: () => this.patchLog({ meds: !l.meds }),
+      weightVal: l.weight || '', setWeight: e => this.patchLog({ weight: e.target.value }),
       bbtVal: l.bbt || '', setBbt: e => this.patchLog({ bbt: e.target.value }),
       noteVal: l.note || '', setNote: e => this.patchLog({ note: e.target.value }),
       prevDay: () => this.shiftLog(-1), nextDay: () => this.shiftLog(1),
@@ -645,10 +706,13 @@ export default class App extends React.Component {
 
   render() {
     const g = this.rvGlobal()
+    if (this.state.locked) return this.renderLock(g)
+    if (this.state.obStep > 0) return this.renderOnboarding(g)
     return (
       <div className={('app ' + g.themeClass).trim()}>
         <div className="phone">
           <div className="amb"><i></i><i></i></div>
+          {this.state.sheet && this.renderSheet(g)}
           {g.isSplash && (
             <div className="splash" onClick={g.dismissSplash}>
               <div className="logo">🤍</div>
@@ -692,7 +756,7 @@ export default class App extends React.Component {
             <div className="nav">
               <button className={g.navHomeCls} onClick={g.goHome}><span className="ic">◐</span>الرئيسية</button>
               <button className={g.navCalCls} onClick={g.goCalendar}><span className="ic">▦</span>التقويم</button>
-              <button className="add" onClick={g.goLog}><span className="ic">+</span></button>
+              <button className="add" onClick={() => this.openSheet()}><span className="ic">+</span></button>
               <button className={g.navUsCls} onClick={g.goUs}><span className="ic">♥</span>نحن</button>
               <button className={g.navMoreCls} onClick={g.goMore}><span className="ic">☰</span>المزيد</button>
             </div>
@@ -1082,6 +1146,22 @@ export default class App extends React.Component {
             <button className={v.wifeCls} onClick={v.pickWife}>👩 {v.wifeName}</button>
           </div>
         </div>
+        <div className="card">
+          <div className="ttl">الحساب 💾</div>
+          <button className="opt" style={{ width: '100%', marginBottom: 9 }} onClick={() => this.exportData()}>⬇️ تصدير نسخة احتياطية</button>
+          <label className="opt" style={{ display: 'block', textAlign: 'center', cursor: 'pointer' }}>⬆️ استيراد نسخة احتياطية<input type="file" accept="application/json" style={{ display: 'none' }} onChange={e => this.importData(e.target.files && e.target.files[0])} /></label>
+        </div>
+        <div className="card">
+          <div className="ttl">الخصوصية 🔒</div>
+          {this.hasPin() ? (
+            <div className="srow"><div className="sl"><div className="si2">🔒</div>قفل التطبيق مفعّل</div><button className="opt" style={{ flex: '0 0 auto', padding: '8px 14px', color: 'var(--rose-d)' }} onClick={() => this.removePin()}>إلغاء القفل</button></div>
+          ) : (
+            <>
+              <p className="selsum">أدخلي رمزًا من ٤ أرقام لقفل التطبيق عند فتحه.</p>
+              <div className="fld"><input className="num" type="number" value={this.state.pinInput} onChange={e => this.setState({ pinInput: e.target.value.slice(0, 4) })} placeholder="••••" /><button className="opt" style={{ flex: '0 0 auto', padding: '11px 16px' }} onClick={() => this.setPin()}>تفعيل القفل</button></div>
+            </>
+          )}
+        </div>
         <div className="note">🔒 <div>البيانات مشتركة بين كل من يملك رابط التطبيق، ومحفوظة في قاعدة بيانات آمنة. هذا التطبيق لا يُغني عن استشارة الطبيب المختص.</div></div>
         <button className="danger" onClick={v.resetData}>حذف جميع البيانات</button>
       </div>
@@ -1182,7 +1262,36 @@ export default class App extends React.Component {
       <div className="screen">
         <div className="hd"><div><div className="hi">رحلتكما معًا</div><h1 className="nm">نحن 💞</h1></div></div>
 
+        <div className="card" style={{ textAlign: 'center' }}>
+          {this.data.settings.couplePhoto
+            ? <img src={this.data.settings.couplePhoto} alt="" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 18, marginBottom: 10 }} />
+            : <div style={{ fontSize: 44, marginBottom: 4 }}>👨‍❤️‍👩</div>}
+          <div style={{ fontWeight: 800, fontSize: 17 }}>{this.data.settings.husband} & {this.data.settings.wife} 🤍</div>
+          <label className="linkbtn" style={{ cursor: 'pointer' }}>📷 {this.data.settings.couplePhoto ? 'تغيير الصورة' : 'إضافة صورة'}<input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => this.setCouplePhoto(e.target.files && e.target.files[0])} /></label>
+        </div>
+
         <button className="qbtn" style={{ marginBottom: 16, fontSize: 16, padding: 18 }} onClick={() => this.nudgePartner()}>💗 نبضة شوق{partnerName ? ' لـ ' + partnerName : ''}</button>
+
+        {(() => { const a = this.achievements(); return (
+          <div className="card">
+            <div className="ttl">🏆 إنجازاتكما</div>
+            <div className="mini">
+              <div className="mc"><div className="mv">{a.streak}</div><div className="ml">أيام متتابعة في التسجيل</div></div>
+              <div className="mc"><div className="mv">{a.total}</div><div className="ml">إجمالي الأيام المسجّلة</div></div>
+              <div className="mc"><div className="mv">{a.fiInFertile}</div><div className="ml">جماع في نافذة الخصوبة</div></div>
+              <div className="mc"><div className="mv">{a.cycles}</div><div className="ml">دورات مسجّلة</div></div>
+            </div>
+          </div>
+        ) })()}
+
+        {this.inbox().length > 0 && (
+          <div className="card">
+            <div className="ttl">📬 آخر الرسائل</div>
+            {this.inbox().slice(0, 8).map((m, i) => (
+              <div key={i} className="srow"><div className="sl" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{m.b}</div><div style={{ fontSize: 10.5, color: 'var(--ink2)' }}>{m.t}</div></div></div>
+            ))}
+          </div>
+        )}
 
         <div className="card">
           <div className="ttl">💌 رسالة</div>
@@ -1267,6 +1376,88 @@ export default class App extends React.Component {
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('tools')}>🩺 الأدوات (مواعيد · تغذية · تقرير)<span className="yn">›</span></button>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('settings')}>⚙️ الإعدادات<span className="yn">›</span></button>
         <div className="note" style={{ marginTop: 6 }}>💡 <div>الرسائل والمناسبات وإعدادات الزوجين انتقلت إلى تبويب «نحن 💞».</div></div>
+      </div>
+    )
+  }
+
+  renderSheet(g) {
+    const v = this.rvLog()
+    return (
+      <div className="sheetwrap" onClick={() => this.closeSheet()}>
+        <div className="sheet" onClick={e => e.stopPropagation()}>
+          <div className="sheethandle"></div>
+          <div className="ttl" style={{ marginBottom: 12 }}>تسجيل سريع • {v.logDateLabel}</div>
+          <button className={v.intimacyCls} onClick={v.toggleIntimacy} style={{ marginBottom: 12 }}>💞 جماع<span className="yn">{v.intimacyTxt}</span></button>
+          <div className="lbl">😌 المزاج</div>
+          <div className="moods" style={{ marginBottom: 12 }}>{v.moodOpts.map(m => <button key={m.key} className={m.cls} onClick={m.onClick}>{m.label}</button>)}</div>
+          <div className="lbl">✨ الأعراض</div>
+          <div className="chips" style={{ marginBottom: 12 }}>{v.symOpts.map(s => <button key={s.key} className={s.cls} onClick={s.onClick}>{s.label}</button>)}</div>
+          <button className={v.medsCls} onClick={v.toggleMeds} style={{ marginBottom: 10 }}>💊 الأدوية / المكملات<span className="yn">{v.medsTxt}</span></button>
+          <div className="fld" style={{ marginBottom: 10 }}><span style={{ fontSize: 13, color: 'var(--ink2)' }}>⚖️ الوزن (كجم)</span><input className="num" type="number" step="0.1" value={v.weightVal} onChange={v.setWeight} placeholder="—" /></div>
+          <div className="fld" style={{ marginBottom: 10 }}><span style={{ fontSize: 13, color: 'var(--ink2)' }}>🌡 الحرارة °</span><input className="num" type="number" step="0.1" value={v.bbtVal} onChange={v.setBbt} placeholder="36.6" /></div>
+          <textarea className="area" value={v.noteVal} onChange={v.setNote} placeholder="📝 ملاحظة سريعة..." />
+          <button className="qbtn" style={{ marginTop: 14 }} onClick={() => this.closeSheet()}>تم ✓</button>
+          <button className="linkbtn" onClick={() => { this.closeSheet(); this.go('log') }}>تفاصيل أكثر (تبويض، حمل، تدفّق) ‹</button>
+        </div>
+      </div>
+    )
+  }
+
+  renderLock(g) {
+    const p = this.state.pinInput || ''
+    return (
+      <div className={('app ' + g.themeClass).trim()}>
+        <div className="phone" style={{ justifyContent: 'center' }}>
+          <div className="lockscreen">
+            <div className="logo" style={{ margin: '0 auto 18px' }}>🔒</div>
+            <h2 style={{ textAlign: 'center', margin: '0 0 18px' }}>أدخلي رمز القفل</h2>
+            <div className="pindots">{[0, 1, 2, 3].map(i => <span key={i} className={'pd' + (p.length > i ? ' on' : '')}></span>)}</div>
+            <div className="keypad">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((k, i) => k === '' ? <div key={i}></div> : <button key={i} className="keyb" onClick={() => this.onPinKey(k)}>{k === 'del' ? '⌫' : k}</button>)}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  renderOnboarding(g) {
+    const step = this.state.obStep, s = this.data.settings
+    return (
+      <div className={('app ' + g.themeClass).trim()}>
+        <div className="phone">
+          <div className="scroll" style={{ padding: '34px 22px' }}>
+            <div className="logo" style={{ margin: '6px auto 16px' }}>🤍</div>
+            <div className="pindots" style={{ marginBottom: 22 }}>{[1, 2, 3].map(i => <span key={i} className={'pd' + (step >= i ? ' on' : '')}></span>)}</div>
+            {step === 1 && (
+              <div className="card">
+                <div className="ttl">مين أنتما؟ 👤</div>
+                <p className="selsum">اختاري صاحب هذا الجهاز ليظهر للطرف الآخر.</p>
+                <div className="opts">
+                  <button className={'opt' + (this.identity === 'husband' ? ' on' : '')} onClick={() => this.setIdentity('husband')}>👨 {s.husband}</button>
+                  <button className={'opt' + (this.identity === 'wife' ? ' onp' : '')} onClick={() => this.setIdentity('wife')}>👩 {s.wife}</button>
+                </div>
+              </div>
+            )}
+            {step === 2 && (
+              <div className="card">
+                <div className="ttl">معلومات الدورة 📅</div>
+                <div className="srow"><div className="sl"><div className="si2">🩸</div>تاريخ آخر دورة</div><input className="datein" type="date" value={s.lastPeriod} onChange={e => this.setLast(e.target.value)} /></div>
+                <div className="srow"><div className="sl"><div className="si2">🔄</div>طول الدورة</div><div className="stp"><button onClick={() => this.bumpCycle(-1)}>−</button><span className="sv2">{s.cycleLength}</span><button onClick={() => this.bumpCycle(1)}>+</button></div></div>
+                <div className="srow"><div className="sl"><div className="si2">📆</div>أيام الحيض</div><div className="stp"><button onClick={() => this.bumpPeriod(-1)}>−</button><span className="sv2">{s.periodLength}</span><button onClick={() => this.bumpPeriod(1)}>+</button></div></div>
+              </div>
+            )}
+            {step === 3 && (
+              <div className="card">
+                <div className="ttl">التنبيهات 🔔</div>
+                <p className="selsum">فعّلي التنبيهات لتصلكِ تذكيرات أيامكِ المهمة ورسائل شريككِ.</p>
+                {this.notifyEnabled() ? <div style={{ color: 'var(--fertile)', fontWeight: 700 }}>مفعّلة ✓</div> : <button className="opt" onClick={() => this.requestNotif()}>🔔 تفعيل التنبيهات</button>}
+              </div>
+            )}
+            <button className="qbtn" style={{ marginTop: 16 }} onClick={() => step < 3 ? this.setState({ obStep: step + 1 }) : this.obFinish()}>{step < 3 ? 'التالي ›' : 'ابدأ 🤍'}</button>
+            <button className="linkbtn" onClick={() => this.obFinish()}>تخطّي</button>
+          </div>
+        </div>
       </div>
     )
   }
