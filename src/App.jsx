@@ -29,6 +29,7 @@ export default class App extends React.Component {
       cmMode: 'spread', cmWhen: 'now', cmHour: 9,
       occLabel: '', occDateV: '', apType: '', apDate: '', apNote: '',
       sheet: false,
+      dayOpen: false,
       locked: false, pinInput: '',
       obStep: 0,
     }
@@ -632,7 +633,7 @@ export default class App extends React.Component {
         key: i, day: date.getDate(), iso, cls,
         inti: !!(lg && lg.intimacy), lhpk: !!(lg && lg.ovTest === 'إيجابي'), preg: !!(lg && lg.pregTest === 'إيجابي'),
         other: !!(lg && !lg.intimacy && lg.ovTest !== 'إيجابي' && lg.pregTest !== 'إيجابي' && (lg.ovTest || lg.pregTest || lg.bbt || lg.flow || (lg.symptoms && lg.symptoms.length) || lg.mood)),
-        onClick: () => { this.hap(); this.setState({ selISO: iso }) },
+        onClick: () => { this.hap(); this.setState({ selISO: iso, dayOpen: true }) },
       })
     }
     const weekDays = [{ k: 'س' }, { k: 'ح' }, { k: 'ن' }, { k: 'ث' }, { k: 'ر' }, { k: 'خ' }, { k: 'ج' }].map((w, i) => ({ key: i, d: w.k }))
@@ -1042,24 +1043,33 @@ export default class App extends React.Component {
           </div>
         </div>
         <div className="card" style={{ animation: 'pop .3s' }}>
-          <div className="hi" style={{ marginBottom: 4 }}>{v.sel.isToday ? 'اليوم • ' : ''}{v.sel.dateLabel}</div>
-          <div className={v.sel.phasePill}><span className="dot"></span>{v.sel.phaseLabel}</div>
-          <p className="selsum">{v.sel.summary}</p>
-          {v.sel.periodAction === 'start' && (
-            <button className="bigtog on" onClick={v.sel.markPeriod} style={{ marginBottom: 13 }}>🩸 يوم بدء دورتكِ<span className="yn">✓</span></button>
+          <button className="dayhdr" onClick={() => { this.hap(); this.setState({ dayOpen: !this.state.dayOpen }) }}>
+            <span className={'chev' + (this.state.dayOpen ? ' open' : '')}>⌄</span>
+            <div className="dayhdr-main">
+              <div className="hi" style={{ marginBottom: 4 }}>{v.sel.isToday ? 'اليوم • ' : ''}{v.sel.dateLabel}</div>
+              <div className={v.sel.phasePill}><span className="dot"></span>{v.sel.phaseLabel}</div>
+            </div>
+          </button>
+          {this.state.dayOpen && (
+            <div style={{ animation: 'pop .25s', marginTop: 12 }}>
+              <p className="selsum">{v.sel.summary}</p>
+              {v.sel.periodAction === 'start' && (
+                <button className="bigtog on" onClick={v.sel.markPeriod} style={{ marginBottom: 13 }}>🩸 يوم بدء دورتكِ<span className="yn">✓</span></button>
+              )}
+              {v.sel.periodAction === 'during' && (
+                <button className="bigtog" onClick={v.sel.endHere} style={{ marginBottom: 13 }}>🩸 انتهت دورتي هنا<span className="yn">تأكيد</span></button>
+              )}
+              {v.sel.periodAction === 'new' && (
+                <button className="bigtog" onClick={v.sel.markPeriod} style={{ marginBottom: 13 }}>🩸 تأكيد بدء الدورة هنا<span className="yn">تأكيد</span></button>
+              )}
+              <button className={v.sel.intiCls} onClick={v.sel.toggleInti} style={{ marginBottom: 13 }}>💞 جماع<span className="yn">{v.sel.intiTxt}</span></button>
+              <div className="lbl">🧪 اختبار التبويض</div>
+              <div className="opts" style={{ marginBottom: 13 }}>{v.sel.ovActs.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
+              <div className="lbl">🤍 اختبار الحمل</div>
+              <div className="opts" style={{ marginBottom: 15 }}>{v.sel.pregActs.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
+              <button className="qbtn" onClick={v.sel.editDay}>✏️ تفاصيل أكثر (أعراض، مزاج، حرارة، ملاحظات)</button>
+            </div>
           )}
-          {v.sel.periodAction === 'during' && (
-            <button className="bigtog" onClick={v.sel.endHere} style={{ marginBottom: 13 }}>🩸 انتهت دورتي هنا<span className="yn">تأكيد</span></button>
-          )}
-          {v.sel.periodAction === 'new' && (
-            <button className="bigtog" onClick={v.sel.markPeriod} style={{ marginBottom: 13 }}>🩸 تأكيد بدء الدورة هنا<span className="yn">تأكيد</span></button>
-          )}
-          <button className={v.sel.intiCls} onClick={v.sel.toggleInti} style={{ marginBottom: 13 }}>💞 جماع<span className="yn">{v.sel.intiTxt}</span></button>
-          <div className="lbl">🧪 اختبار التبويض</div>
-          <div className="opts" style={{ marginBottom: 13 }}>{v.sel.ovActs.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
-          <div className="lbl">🤍 اختبار الحمل</div>
-          <div className="opts" style={{ marginBottom: 15 }}>{v.sel.pregActs.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
-          <button className="qbtn" onClick={v.sel.editDay}>✏️ تفاصيل أكثر (أعراض، مزاج، حرارة، ملاحظات)</button>
         </div>
       </div>
     )

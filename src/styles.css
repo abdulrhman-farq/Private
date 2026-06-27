@@ -95,6 +95,10 @@ html,body{margin:0;padding:0;background:#100b13}
 .cell.ph-ovu .mkrow .mhg{color:#fff}
 .mkrow .mn{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.5}
 .selsum{font-size:12.5px;color:var(--ink2);line-height:1.7;margin:13px 2px 15px}
+.dayhdr{width:100%;display:flex;align-items:center;gap:12px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:right;padding:2px;color:inherit}
+.dayhdr .dayhdr-main{flex:1}
+.dayhdr .chev{font-size:22px;line-height:1;color:var(--ink2);transition:transform .25s;transform:rotate(-90deg);display:inline-block}
+.dayhdr .chev.open{transform:rotate(0deg)}
 .topbar{flex-shrink:0;display:flex;justify-content:center;align-items:center;padding:calc(7px + env(safe-area-inset-top,0px)) 0 5px;z-index:6}
 .syncbadge{display:inline-flex;align-items:center;gap:5px;border:none;cursor:pointer;font-family:inherit;font-size:10.5px;font-weight:700;padding:4px 12px;border-radius:20px;background:var(--card);box-shadow:var(--shadow-s);color:var(--ink2);opacity:.95;transition:color .2s}
 .syncbadge .si{font-size:11px;line-height:1}
