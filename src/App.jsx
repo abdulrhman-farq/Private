@@ -360,10 +360,34 @@ export default class App extends React.Component {
     if (len >= 15 && len <= 60) { hist.push(len); if (hist.length > 12) hist = hist.slice(hist.length - 12) }
     const avg = hist.length ? Math.round(hist.reduce((a, b) => a + b, 0) / hist.length) : s.cycleLength
     const cycleLength = Math.max(21, Math.min(40, avg))
-    const day = this.data.logs[startISO] || this.emptyLog()
-    const logs = { ...this.data.logs, [startISO]: { ...day, flow: day.flow || 'متوسط' } }
+    // علّم أيام الدورة المتوقّعة فقط (من يوم البدء حتى طول الدورة) كأيام حيض — لا كل أيام الشهر.
+    const P = Math.max(2, Math.min(10, s.periodLength || 5))
+    const logs = { ...this.data.logs }
+    for (let i = 0; i < P; i++) {
+      const iso = this.iso(this.addDays(this.parse(startISO), i))
+      const day = logs[iso] || this.emptyLog()
+      logs[iso] = { ...day, flow: day.flow || (i === 0 ? 'متوسط' : 'خفيف') }
+    }
     this.hap()
     this.save({ ...this.data, settings: { ...s, lastPeriod: startISO, cycleLength }, history: hist, logs })
+    this.showToast('🩸 تم تأكيد بدء الدورة')
+  }
+  // تأكيد انتهاء الدورة: يضبط طول الحيض الفعلي ويمسح علامة الحيض عمّا بعد يوم الانتهاء.
+  endPeriod(endISO) {
+    if (!endISO) return
+    const s = this.data.settings, start = this.parse(s.lastPeriod), end = this.parse(endISO)
+    const span = this.diff(end, start) + 1
+    if (span < 1 || span > 15) return
+    const periodLength = Math.max(2, Math.min(10, span))
+    // امسح علامة الحيض عن أي يوم بعد يوم الانتهاء ضمن نافذة الدورة الحالية.
+    const logs = { ...this.data.logs }
+    for (let i = span; i < 14; i++) {
+      const iso = this.iso(this.addDays(start, i))
+      if (logs[iso] && logs[iso].flow) logs[iso] = { ...logs[iso], flow: '' }
+    }
+    this.hap()
+    this.save({ ...this.data, settings: { ...s, periodLength }, logs })
+    this.showToast('✅ تم تسجيل انتهاء الدورة')
   }
   toggleTheme() { const s = { ...this.data.settings, theme: this.data.settings.theme === 'dark' ? 'light' : 'dark' }; this.hap(); this.save({ ...this.data, settings: s }) }
   toggleRem(k) { const r = { ...this.data.settings.reminders }; r[k] = !r[k]; this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, reminders: r } }) }
@@ -589,6 +613,9 @@ export default class App extends React.Component {
       periodPrompt: this.periodPromptInfo(),
       confirmToday: () => this.confirmPeriod(this.iso(new Date())),
       confirmOnDate: e => this.confirmPeriod(e.target.value),
+      inPeriod: ph === 'period',
+      endToday: () => this.endPeriod(this.iso(new Date())),
+      endOnDate: e => this.endPeriod(e.target.value),
     }
   }
   rvCal() {
@@ -620,6 +647,7 @@ export default class App extends React.Component {
     const sel = {
       dateLabel: this.arLong(d), isToday: si === today, phaseLabel: lab[phk], phasePill: 'pill ' + pm[phk], summary,
       isPeriodStart, markPeriod: () => this.confirmPeriod(si),
+      inPeriodPhase: phk === 'period' && !isPeriodStart, endHere: () => this.endPeriod(si),
       intiCls: 'bigtog' + (e.intimacy ? ' on' : ''), intiTxt: e.intimacy ? 'نعم' : 'لا', toggleInti: () => this.patchDay(si, { intimacy: !e.intimacy }),
       ovActs, pregActs,
       editDay: () => { this.hap(); this.setState({ logISO: si, screen: 'log', saved: false }) },
@@ -865,6 +893,17 @@ export default class App extends React.Component {
             </div>
           </div>
         )}
+        {v.inPeriod && (
+          <div className="card">
+            <div className="ttl">🩸 دورتكِ مستمرة</div>
+            <p className="selsum">عند انتهائها أكّدي ليُضبط طول الحيض الفعلي — تُحدَّد أيام الدورة فقط لا كل الشهر.</p>
+            <button className="qbtn" onClick={v.endToday}>✅ انتهت دورتي اليوم</button>
+            <div className="fld" style={{ marginTop: 13 }}>
+              <span style={{ fontSize: 13, color: 'var(--ink2)' }}>أو اختاري يوم الانتهاء</span>
+              <input className="datein" type="date" value="" onChange={v.endOnDate} />
+            </div>
+          </div>
+        )}
         {showAppt && (
           <div className="alert"><div className="ae">🩺</div><div><div className="at">{apptSoon.when === 'اليوم' ? 'موعدكم اليوم' : 'تذكير موعد بكرة'}</div><div className="ax">{apptSoon.type}{apptSoon.note ? ' — ' + apptSoon.note : ''}</div></div></div>
         )}
@@ -999,6 +1038,9 @@ export default class App extends React.Component {
           <div className={v.sel.phasePill}><span className="dot"></span>{v.sel.phaseLabel}</div>
           <p className="selsum">{v.sel.summary}</p>
           <button className={'bigtog' + (v.sel.isPeriodStart ? ' on' : '')} onClick={v.sel.markPeriod} style={{ marginBottom: 13 }}>🩸 {v.sel.isPeriodStart ? 'يوم بدء دورتكِ' : 'تأكيد بدء الدورة هنا'}<span className="yn">{v.sel.isPeriodStart ? '✓' : 'تأكيد'}</span></button>
+          {v.sel.inPeriodPhase && (
+            <button className="bigtog" onClick={v.sel.endHere} style={{ marginBottom: 13 }}>🩸 انتهت دورتي هنا<span className="yn">تأكيد</span></button>
+          )}
           <button className={v.sel.intiCls} onClick={v.sel.toggleInti} style={{ marginBottom: 13 }}>💞 جماع<span className="yn">{v.sel.intiTxt}</span></button>
           <div className="lbl">🧪 اختبار التبويض</div>
           <div className="opts" style={{ marginBottom: 13 }}>{v.sel.ovActs.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
