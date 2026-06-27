@@ -148,7 +148,15 @@ export default class App extends React.Component {
     this.syncFromCloud().then(() => { if (this.migrate()) this.scheduleCloud() })
     // تحديث حيّ: استقطاب دوري + عند العودة للتطبيق، فيظهر تعديل الطرف الآخر تلقائيًا.
     this._poll = setInterval(() => this.pollCloud(), 15000)
-    this._onVis = () => { try { if (!document.hidden) { this.pollCloud(); this.maybeNotify() } } catch (e) { this.pollCloud() } }
+    this._onVis = () => {
+      try {
+        if (document.hidden) { this._hidAt = Date.now() }
+        else {
+          if (this.hasPin() && this._hidAt && Date.now() - this._hidAt > 60000 && !this.state.locked) this.setState({ locked: true, pinInput: '' })
+          this.pollCloud(); this.maybeNotify()
+        }
+      } catch (e) {}
+    }
     try { document.addEventListener('visibilitychange', this._onVis); window.addEventListener('focus', this._onVis) } catch (e) {}
     setTimeout(() => this.maybeNotify(), 2600)
     if (this.notifyEnabled()) this.enablePush()
@@ -292,9 +300,13 @@ export default class App extends React.Component {
     }
     if (!Array.isArray(d.appointments)) { d.appointments = []; changed = true }
     if (!s.vitamins) { s.vitamins = { on: true, hour: 21 }; changed = true }
+    if (!s.msgPreset) { s.msgPreset = 'medium'; changed = true }
+    if (s.fertileBoost === undefined) { s.fertileBoost = true; changed = true }
     if (changed) this.persist(d)
     return changed
   }
+  setMsgPreset(p) { this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, msgPreset: p } }); this.showToast('✅ تم تحديث جرعة الرسائل') }
+  toggleBoost() { this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, fertileBoost: !this.data.settings.fertileBoost } }) }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
   save(d) { d = { ...d, updatedAt: new Date().toISOString(), editedBy: this.identity }; this.persist(d); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud() }
   seed() {
@@ -507,6 +519,9 @@ export default class App extends React.Component {
     // تأكيد البدء: مرّت أيام على الموعد المتوقّع دون تأكيد الدورة.
     const c = this.calc(), late = this.diff(c.today, c.next)
     if (late >= 3 && !(this.data.logs[tISO] && this.data.logs[tISO].pregTest)) tips.push({ icon: '🤍', text: 'تأخّر الموعد المتوقّع للدورة — يُنصح بإجراء اختبار حمل منزلي وتسجيل نتيجته.' })
+    // دورة متغيّرة → ينصح بتتبّع اختبار التبويض لتحديد أدق.
+    const h = this.data.history || []
+    if (h.length >= 3 && this.stdev(h) > 3 && this.ovulationEstimate().source === 'calc') tips.push({ icon: '📈', text: 'دورتكِ متغيّرة قليلًا — تتبّعي اختبار التبويض (LH) هذه الأيام لتحديد يوم التبويض بدقّة.' })
     return tips
   }
   fertileIntimacy() {
@@ -556,14 +571,17 @@ export default class App extends React.Component {
     const ringStyle = 'conic-gradient(' + cvar[ph] + ' ' + pct + '%, var(--track) 0)'
     const ovE = this.ovulationEstimate()
     const srcTxt = ovE.source === 'lh' ? 'حسب اختبار التبويض' : ovE.source === 'bbt' ? 'حسب ارتفاع الحرارة' : 'حسب التقويم'
+    // توقّع تكيّفي: عند توفّر بيانات (LH/حرارة) نُثبّت يوم التبويض ونافذة الخصوبة عليها.
+    const ovuD = ovE.source !== 'calc' ? ovE.date : c.ovu
+    const fS = this.addDays(ovuD, -5), fE = this.addDays(ovuD, 1)
     const meName = this.identity ? this.identityView(this.identity).name : this.data.settings.wife
     return {
       greeting: 'أهلاً، ' + meName, todayLabel: this.arLong(c.today),
       cycleDay: c.cycleDay, phaseLabel: lab[ph], phasePill: 'pill ' + pmap[ph], ringStyle, ang,
       statusTitle: title, statusDesc: desc, chanceLabel: chance, chancePct: this.conceptionPct(c.today),
       ovEstLabel: this.arShort(ovE.date), ovEstSmart: ovE.source !== 'calc', ovEstSrc: srcTxt,
-      ovuDateLabel: this.arShort(c.ovu), nextDateLabel: this.arShort(c.next),
-      fertileRange: this.arShort(c.fS) + ' — ' + this.arShort(c.fE),
+      ovuDateLabel: this.arShort(ovuD), nextDateLabel: this.arShort(c.next),
+      fertileRange: this.arShort(fS) + ' — ' + this.arShort(fE),
       cdOvu: Math.max(0, c.dto), cdFertile: Math.max(0, this.diff(c.fS, c.today)), cdPeriod: Math.max(0, c.dtp),
       cdOvuW: c.dto === 1 ? 'يوم' : 'أيام', cdFertileW: this.diff(c.fS, c.today) === 1 ? 'يوم' : 'أيام', cdPeriodW: c.dtp === 1 ? 'يوم' : 'أيام',
       dailyTip: this.dailyTip(ph), bestDays: this.bestDays(), lateAlert: this.lateInfo(), pregAlert: this.pregInfo(),
@@ -1337,6 +1355,17 @@ export default class App extends React.Component {
               ))}
             </div>
           )}
+        </div>
+
+        <div className="card">
+          <div className="ttl">🔔 جرعة رسائل الحب</div>
+          <p className="selsum">كم مرة تصل رسائل الحب التلقائية يوميًا؟</p>
+          <div className="opts" style={{ flexWrap: 'wrap', gap: 8 }}>
+            {[['off', 'إيقاف'], ['low', 'مرتين'], ['medium', '٤ مرات'], ['high', 'كل ساعتين'], ['max', 'مكثّف']].map(([k, l]) => (
+              <button key={k} className={'opt' + (this.data.settings.msgPreset === k ? ' on' : '')} style={{ flex: '1 0 28%' }} onClick={() => this.setMsgPreset(k)}>{l}</button>
+            ))}
+          </div>
+          <div className="srow" style={{ marginTop: 10 }}><div className="sl"><div className="si2">🔥</div>تكثيف في نافذة الخصوبة</div><button className={'sw' + (this.data.settings.fertileBoost ? ' on' : '')} onClick={() => this.toggleBoost()}></button></div>
         </div>
 
         <div className="card">
