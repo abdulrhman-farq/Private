@@ -644,10 +644,18 @@ export default class App extends React.Component {
     const ovActs = ['سلبي', 'إيجابي'].map((o, i) => ({ key: i, label: o, cls: 'opt' + (e.ovTest === o ? (o === 'إيجابي' ? ' onp' : ' on') : ''), onClick: () => this.patchDay(si, { ovTest: e.ovTest === o ? '' : o }) }))
     const pregActs = ['سلبي', 'إيجابي'].map((o, i) => ({ key: i, label: o, cls: 'opt' + (e.pregTest === o ? (o === 'إيجابي' ? ' onp' : ' on') : ''), onClick: () => this.patchDay(si, { pregTest: e.pregTest === o ? '' : o }) }))
     const isPeriodStart = si === this.data.settings.lastPeriod
+    // زر الدورة حسب سياق اليوم — لا نعرض "تأكيد بدء" إذا كانت الدورة بادية أصلاً:
+    //  start = يوم البدء المسجّل · during = ضمن أيام الحيض (يعرض إنهاء) · new = يوم مرشّح لبدء دورة جديدة · none = إخفاء
+    const dSince = this.diff(d, this.parse(this.data.settings.lastPeriod))
+    const Pp = Math.max(2, Math.min(10, this.data.settings.periodLength || 5)), Lc = this.data.settings.cycleLength || 27
+    let periodAction = 'none'
+    if (dSince === 0) periodAction = 'start'
+    else if (dSince > 0 && dSince < Pp) periodAction = 'during'
+    else if (dSince < 0 || dSince >= Math.round(Lc / 2)) periodAction = 'new'
     const sel = {
       dateLabel: this.arLong(d), isToday: si === today, phaseLabel: lab[phk], phasePill: 'pill ' + pm[phk], summary,
-      isPeriodStart, markPeriod: () => this.confirmPeriod(si),
-      inPeriodPhase: phk === 'period' && !isPeriodStart, endHere: () => this.endPeriod(si),
+      isPeriodStart, periodAction, markPeriod: () => this.confirmPeriod(si),
+      endHere: () => this.endPeriod(si),
       intiCls: 'bigtog' + (e.intimacy ? ' on' : ''), intiTxt: e.intimacy ? 'نعم' : 'لا', toggleInti: () => this.patchDay(si, { intimacy: !e.intimacy }),
       ovActs, pregActs,
       editDay: () => { this.hap(); this.setState({ logISO: si, screen: 'log', saved: false }) },
@@ -1037,9 +1045,14 @@ export default class App extends React.Component {
           <div className="hi" style={{ marginBottom: 4 }}>{v.sel.isToday ? 'اليوم • ' : ''}{v.sel.dateLabel}</div>
           <div className={v.sel.phasePill}><span className="dot"></span>{v.sel.phaseLabel}</div>
           <p className="selsum">{v.sel.summary}</p>
-          <button className={'bigtog' + (v.sel.isPeriodStart ? ' on' : '')} onClick={v.sel.markPeriod} style={{ marginBottom: 13 }}>🩸 {v.sel.isPeriodStart ? 'يوم بدء دورتكِ' : 'تأكيد بدء الدورة هنا'}<span className="yn">{v.sel.isPeriodStart ? '✓' : 'تأكيد'}</span></button>
-          {v.sel.inPeriodPhase && (
+          {v.sel.periodAction === 'start' && (
+            <button className="bigtog on" onClick={v.sel.markPeriod} style={{ marginBottom: 13 }}>🩸 يوم بدء دورتكِ<span className="yn">✓</span></button>
+          )}
+          {v.sel.periodAction === 'during' && (
             <button className="bigtog" onClick={v.sel.endHere} style={{ marginBottom: 13 }}>🩸 انتهت دورتي هنا<span className="yn">تأكيد</span></button>
+          )}
+          {v.sel.periodAction === 'new' && (
+            <button className="bigtog" onClick={v.sel.markPeriod} style={{ marginBottom: 13 }}>🩸 تأكيد بدء الدورة هنا<span className="yn">تأكيد</span></button>
           )}
           <button className={v.sel.intiCls} onClick={v.sel.toggleInti} style={{ marginBottom: 13 }}>💞 جماع<span className="yn">{v.sel.intiTxt}</span></button>
           <div className="lbl">🧪 اختبار التبويض</div>
