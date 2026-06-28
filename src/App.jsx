@@ -3,6 +3,7 @@ import { cloudLoad, cloudSave, pushSubscribe, addCustomMessage, listCustomMessag
 import { prayerMinutes, nextPrayer, fmtMin, PRAYER_NAMES, PRAYER_ORDER, riyadhNowMin } from './prayer.js'
 import { MORNING, EVENING } from './athkar.js'
 import { LETTER_MD, LETTER_TITLE } from './letter.js'
+import { HM_HERO, HM_TIMELINE, HM_MEMORIES, HM_QUOTES, HM_PLACES, HM_ACTIVITIES, HM_INSIGHTS, HM_FUTURE, HM_FILTERS } from './honeymoon.js'
 
 // إصدار مخطّط البيانات الحالي. عند رفعه نُضيف دالة ترقية بدل مسح البيانات.
 const DATA_VERSION = 6
@@ -98,6 +99,7 @@ export default class App extends React.Component {
       sheet: false,
       dayOpen: false,
       salTab: 'times', salAdj: false, dhText: '', dhCount: '',
+      hmOpen: false, hmFilter: 'all',
       locked: false, pinInput: '',
       obStep: 0,
       resetModal: false, resetText: '', importPreview: null,
@@ -1190,6 +1192,7 @@ export default class App extends React.Component {
             {this.state.screen === 'report' && this.renderReport()}
             {this.state.screen === 'salah' && this.renderSalah(g)}
             {this.state.screen === 'letter' && this.renderLetter(g)}
+            {this.state.screen === 'honeymoon' && this.renderHoneymoon(g)}
           </div>
           {g.showNav && (
             <div className="nav">
@@ -1294,6 +1297,13 @@ export default class App extends React.Component {
             <span className="pcr">{fmtMin(npMin)}<span className="pcd">بعد {pcd}</span></span>
           </button>
         )}
+
+        {/* شهر العسل — مدخل سريع */}
+        <button className="card hmentry" onClick={() => this.go('honeymoon')}>
+          <span className="hmel">🏝️</span>
+          <span className="hmem"><span className="hmet">شهر العسل</span><span className="hmed">ذكرياتنا الأولى بعد الزواج</span></span>
+          <span className="hmear">›</span>
+        </button>
 
         {/* أبرز ما هو قادم — تبويض ومناسبات ومواعيد */}
         {upcoming.length > 0 && (
@@ -1802,6 +1812,7 @@ export default class App extends React.Component {
         </div>
 
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('letter')}>💌 رسالتنا — إلى رويدا من عبدالرحمن<span className="yn">›</span></button>
+        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('honeymoon')}>🏝️ شهر العسل — ذكرياتنا الأولى<span className="yn">›</span></button>
         <button className="qbtn" style={{ marginBottom: 16, fontSize: 16, padding: 18 }} onClick={() => this.nudgePartner()}>💗 نبضة شوق{partnerName ? ' لـ ' + partnerName : ''}</button>
 
         {(() => { const a = this.achievements(); return (
@@ -1953,6 +1964,118 @@ export default class App extends React.Component {
           <div className="lhs">عبدالرحمن 🤍 رويدا</div>
         </div>
         <div className="card letter">{this.renderLetterBody(LETTER_MD)}</div>
+      </div>
+    )
+  }
+  renderHoneymoon(g) {
+    const f = this.state.hmFilter
+    const match = it => f === 'all' || it.cat === f || it.category === f
+    const timeline = HM_TIMELINE.filter(match)
+    const memories = HM_MEMORIES.filter(match)
+    const moodCls = { 'رومانسي': 'mr', 'مضحك': 'mf', 'مغامرة': 'ma', 'هادئ': 'mc', 'عميق': 'md' }
+    const qGroups = [['romantic', '💞 رومانسي'], ['funny', '😄 مضحك'], ['deep', '🌙 عميق'], ['future', '🌱 المستقبل']]
+    if (!this.state.hmOpen) {
+      return (
+        <div className="screen">
+          <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">ذكرياتنا الأولى بعد الزواج</div><h1 className="nm">شهر العسل 🏝️</h1></div><button className="tbtn" onClick={() => this.go('us')}>‹</button></div>
+          <div className="card hmhero">
+            <div className="hme">🌙✈️💞</div>
+            <div className="hmt">{HM_HERO.title}</div>
+            <div className="hmsub">{HM_HERO.subtitle}</div>
+            <p className="hmintro">{HM_HERO.intro}</p>
+            <button className="qbtn" onClick={() => { this.hap(); this.setState({ hmOpen: true }) }}>{HM_HERO.cta} 💌</button>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="screen">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">ذكرياتنا الأولى بعد الزواج</div><h1 className="nm">شهر العسل 🏝️</h1></div><button className="tbtn" onClick={() => this.go('us')}>‹</button></div>
+
+        <div className="hmfilters">
+          {HM_FILTERS.map(ff => <button key={ff.k} className={'hmchip' + (f === ff.k ? ' on' : '')} onClick={() => { this.hap(); this.setState({ hmFilter: ff.k }) }}>{ff.label}</button>)}
+        </div>
+
+        {timeline.length > 0 && (
+          <>
+            <div className="ttl" style={{ marginTop: 6 }}>🧭 رحلتنا يومًا بيوم</div>
+            <div className="hmtl">
+              {timeline.map(it => (
+                <div key={it.id} className="hmcard">
+                  <div className="hmrow"><span className={'mood ' + (moodCls[it.mood] || 'mc')}>{it.mood}</span><span className="hmloc">📍 {it.location}</span></div>
+                  <div className="hmctitle">{it.title}</div>
+                  <p className="hmstory">{it.story}</p>
+                  {it.quote && <div className="hmquote">“{it.quote}”</div>}
+                  {it.sourceConfidence === 'needs-review' && <div className="hmflag">⚠︎ بعض التفاصيل بحاجة تأكيد</div>}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {memories.length > 0 && (
+          <>
+            <div className="ttl" style={{ marginTop: 10 }}>💞 بطاقات الذكريات</div>
+            {memories.map(m => (
+              <div key={m.id} className="card hmmem">
+                <div className="hmctitle">{m.title}{m.privateOnly && <span className="hmlock"> 🔒</span>}</div>
+                {m.location && <div className="hmloc">📍 {m.location}</div>}
+                <p className="hmstory">{m.story}</p>
+                {m.quote && <div className="hmquote">“{m.quote}”</div>}
+                {m.tags && <div className="hmtags">{m.tags.map((t, i) => <span key={i} className="hmtag">{t}</span>)}</div>}
+                {m.sourceConfidence === 'needs-review' && <div className="hmflag">⚠︎ بحاجة تأكيد</div>}
+              </div>
+            ))}
+          </>
+        )}
+
+        {f === 'all' && (
+          <>
+            <div className="card">
+              <div className="ttl">📜 جدار الاقتباسات</div>
+              {qGroups.map(([t, lbl]) => {
+                const qs = HM_QUOTES.filter(q => q.type === t)
+                return qs.length ? <div key={t} style={{ marginBottom: 12 }}>
+                  <div className="hmqlbl">{lbl}</div>
+                  {qs.map((q, i) => <div key={i} className="hmwallq">“{q.text}”</div>)}
+                </div> : null
+              })}
+            </div>
+
+            <div className="card">
+              <div className="ttl">📍 الأماكن</div>
+              <div className="hmplaces">
+                {HM_PLACES.map((p, i) => (
+                  <div key={i} className={'hmplace' + (p.confidence === 'needs-review' ? ' rev' : '')}>
+                    <div className="hmpn">{p.name}</div>
+                    {p.note && <div className="hmpnote">{p.note}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="ttl">🎯 الأنشطة</div>
+              <div className="hmacts">
+                {HM_ACTIVITIES.map((a, i) => <div key={i} className="hmact"><span className="hmae">{a.icon}</span>{a.label}</div>)}
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="ttl">🤍 ماذا تعلّمنا عن بعض؟</div>
+              <div className="hmins"><div className="hminl">رويدة تحب</div>{HM_INSIGHTS.ruwaida.map((x, i) => <span key={i} className="hminc">{x}</span>)}</div>
+              <div className="hmins"><div className="hminl">عبدالرحمن يحب</div>{HM_INSIGHTS.abdulrahman.map((x, i) => <span key={i} className="hminc">{x}</span>)}</div>
+              <div className="hmins"><div className="hminl">كلانا</div>{HM_INSIGHTS.both.map((x, i) => <span key={i} className="hminc he">{x}</span>)}</div>
+            </div>
+
+            <div className="card">
+              <div className="ttl">🌱 أحلامنا القادمة</div>
+              <div className="info">
+                {HM_FUTURE.map((x, i) => <div key={i} className="irow"><div className="ib bp">{x.icon}</div><div className="iv" style={{ fontWeight: 600 }}>{x.text}</div></div>)}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     )
   }
