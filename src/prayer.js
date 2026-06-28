@@ -2,7 +2,7 @@
 // حساب فلكي محلي بالكامل (يعمل دون اتصال). مبني على خوارزمية PrayTimes.
 const LAT = 24.7136, LNG = 46.6753, TZ = 3
 const FAJR_ANGLE = 18.5     // زاوية الفجر — أم القرى
-const ISHA_GAP = 90         // العشاء بعد المغرب بـ90 دقيقة — أم القرى
+const ISHA_GAP = 120        // العشاء بعد المغرب بـ120 دقيقة (مطابق لتقويم الرياض)
 
 const dsin = d => Math.sin((d * Math.PI) / 180)
 const dcos = d => Math.cos((d * Math.PI) / 180)
