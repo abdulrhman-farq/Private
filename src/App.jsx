@@ -1,8 +1,21 @@
 import React from 'react'
 import { cloudLoad, cloudSave, pushSubscribe, addCustomMessage, listCustomMessages, deleteCustomMessage, sendNow, sendNudge, SHARED_KEY, VAPID_PUBLIC } from './supabase.js'
 
-// أيام تبويض رويدا — faithful React port of the Claude Design prototype.
-// All cycle math, seeding and localStorage persistence mirror the original 1:1.
+// إصدار مخطّط البيانات الحالي. عند رفعه نُضيف دالة ترقية بدل مسح البيانات.
+const DATA_VERSION = 6
+const NOW = () => new Date().toISOString()
+// معرّف ثابت لكل جهاز — يُستخدم في دمج البيانات وتتبّع مصدر التعديل.
+const DEVICE_ID = (() => {
+  try {
+    let id = localStorage.getItem('rweida_device')
+    if (!id) { id = 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem('rweida_device', id) }
+    return id
+  } catch (e) { return 'd0' }
+})()
+const rid = (p) => p + Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
+
+// أيام تبويض رويدا — تطبيق متابعة الدورة والخصوبة.
+// المزامنة تعتمد دمجًا على مستوى العنصر (لا استبدالًا كاملًا) لمنع فقدان البيانات بين جهازين.
 export default class App extends React.Component {
   constructor(props) {
     super(props)
@@ -10,6 +23,7 @@ export default class App extends React.Component {
     this.load()
     // مجموعة بيانات مشتركة: الجميع على نفس المفتاح => نفس البيانات للكل.
     this.syncKey = SHARED_KEY
+    this.deviceId = DEVICE_ID
     this.identity = this.initIdentity()
     this.state = {
       screen: 'splash',
@@ -32,6 +46,7 @@ export default class App extends React.Component {
       dayOpen: false,
       locked: false, pinInput: '',
       obStep: 0,
+      resetModal: false, resetText: '', importPreview: null,
     }
     let pin = null; try { pin = localStorage.getItem('rweida_pin') } catch (e) {}
     if (pin) this.state.locked = true
@@ -109,11 +124,50 @@ export default class App extends React.Component {
       setTimeout(() => URL.revokeObjectURL(url), 2000); this.showToast('✅ تم تصدير نسخة احتياطية')
     } catch (e) {}
   }
+  // التحقق من سلامة نسخة احتياطية قبل قبولها — يرفض الملفات الناقصة/التالفة/الأحدث.
+  validateBackupData(d) {
+    if (!d || typeof d !== 'object') return { ok: false, error: 'الملف ليس بصيغة JSON صحيحة.' }
+    const s = d.settings
+    if (!s || typeof s !== 'object') return { ok: false, error: 'لا يحتوي الملف على إعدادات صالحة.' }
+    if (typeof s.lastPeriod !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s.lastPeriod)) return { ok: false, error: 'تاريخ آخر دورة غير صالح.' }
+    if (typeof s.cycleLength !== 'number' || s.cycleLength < 15 || s.cycleLength > 60) return { ok: false, error: 'طول الدورة غير منطقي.' }
+    if (typeof s.periodLength !== 'number' || s.periodLength < 1 || s.periodLength > 15) return { ok: false, error: 'عدد أيام الدورة غير منطقي.' }
+    if (d.logs != null && typeof d.logs !== 'object') return { ok: false, error: 'سجلّات الأيام تالفة.' }
+    if (d.appointments != null && !Array.isArray(d.appointments)) return { ok: false, error: 'قائمة المواعيد تالفة.' }
+    if (d.occasions != null && !Array.isArray(d.occasions)) return { ok: false, error: 'قائمة المناسبات تالفة.' }
+    if (d.history != null && !Array.isArray(d.history)) return { ok: false, error: 'سجل الدورات تالف.' }
+    if (typeof d.v === 'number' && d.v > DATA_VERSION) return { ok: false, error: 'الملف من إصدار أحدث من التطبيق — حدّثي التطبيق أولًا.' }
+    return { ok: true }
+  }
+  // الاستيراد: يتحقق أولًا، ثم يعرض معاينة — ولا يرفع للسحابة إلا بعد تأكيد المستخدم.
   importData(file) {
     if (!file) return
     const r = new FileReader()
-    r.onload = () => { try { const d = JSON.parse(r.result); if (d && d.settings) { d.updatedAt = new Date().toISOString(); this.persist(d); this.migrate(); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud(); this.showToast('✅ تم استيراد البيانات') } else if (typeof alert === 'function') alert('ملف غير صالح') } catch (e) { if (typeof alert === 'function') alert('تعذّر قراءة الملف') } }
+    r.onload = () => {
+      let d = null
+      try { d = JSON.parse(r.result) } catch (e) { if (typeof alert === 'function') alert('تعذّر قراءة الملف.'); return }
+      const v = this.validateBackupData(d)
+      if (!v.ok) { if (typeof alert === 'function') alert('ملف غير صالح: ' + v.error); return }
+      // توحيد شكل الملف (طوابع/معرّفات) للمعاينة — دالة نقية بلا أي مسٍّ للبيانات الحالية أو التخزين.
+      const norm = this.normalizeForMerge(JSON.parse(JSON.stringify(d)))
+      const counts = {
+        logs: Object.keys(norm.logs || {}).length,
+        appts: (norm.appointments || []).filter(a => !a.deletedAt).length,
+        occ: (norm.occasions || []).filter(o => !o.deletedAt).length,
+        cycles: (norm.history || []).length,
+      }
+      this.setState({ importPreview: { data: norm, counts } })
+    }
     r.readAsText(file)
+  }
+  // تأكيد الاستيراد: دمج (لا استبدال) مع الحالي ثم مزامنة.
+  confirmImport() {
+    const p = this.state.importPreview; if (!p) return
+    const { data: merged } = this.mergeData(p.data, this.data)
+    this.persist({ ...merged, updatedAt: NOW(), editedBy: this.identity })
+    this.setState({ importPreview: null, tick: this.state.tick + 1 })
+    this.scheduleCloud()
+    this.showToast('✅ تم استيراد البيانات ودمجها')
   }
   // ---- صورة الزوجين ----
   setCouplePhoto(file) {
@@ -125,7 +179,7 @@ export default class App extends React.Component {
         const cv = document.createElement('canvas'), max = 420; let w = img.width, h = img.height
         if (w > h) { if (w > max) { h = h * max / w; w = max } } else { if (h > max) { w = w * max / h; h = max } }
         cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h)
-        this.save({ ...this.data, settings: { ...this.data.settings, couplePhoto: cv.toDataURL('image/jpeg', 0.7) } }); this.showToast('✅ تم تحديث الصورة')
+        this.commit({ settings: { ...this.data.settings, couplePhoto: cv.toDataURL('image/jpeg', 0.7) } }, ['settings']); this.showToast('✅ تم تحديث الصورة')
       }
       img.src = r.result
     }
@@ -179,44 +233,114 @@ export default class App extends React.Component {
     try { document.removeEventListener('visibilitychange', this._onVis); window.removeEventListener('focus', this._onVis) } catch (e) {}
   }
 
-  // ---- cloud sync (Supabase) ----
+  // ---- cloud sync (Supabase) — دمج على مستوى العنصر ----
+  // يختار العنصر الأحدث (updatedAt) بين نسختين من نفس العنصر.
+  newerItem(a, b) { return (b && (b.updatedAt || '') > ((a && a.updatedAt) || '')) ? b : a }
+  // دمج قائمتين معرّفتين بـ id (مواعيد/مناسبات) مع احترام الحذف الناعم (deletedAt).
+  mergeById(localArr, remoteArr) {
+    const map = new Map(); let changed = false
+    for (const it of (localArr || [])) if (it && it.id) map.set(it.id, it)
+    for (const it of (remoteArr || [])) {
+      if (!it || !it.id) continue
+      const ex = map.get(it.id)
+      if (!ex) { map.set(it.id, it); changed = true }
+      else if ((it.updatedAt || '') > (ex.updatedAt || '')) { map.set(it.id, it); changed = true }
+    }
+    return { list: Array.from(map.values()), changed }
+  }
+  // توحيد مستند قادم من جهاز لم يُرقَّ بعد (v5) إلى شكل قابل للدمج — دون آثار جانبية.
+  normalizeForMerge(d) {
+    if (!d || !d.settings) return d
+    if (d.v >= DATA_VERSION && Array.isArray(d.occasions)) return d
+    const c = JSON.parse(JSON.stringify(d)), stamp = c.updatedAt || '2020-01-01T00:00:00.000Z'
+    c.logs = c.logs || {}
+    for (const k in c.logs) if (c.logs[k] && !c.logs[k].updatedAt) c.logs[k].updatedAt = stamp
+    c.appointments = (c.appointments || []).map(a => ({ ...a, id: a.id || rid('a'), createdAt: a.createdAt || stamp, updatedAt: a.updatedAt || stamp }))
+    const occ = Array.isArray(c.occasions) ? c.occasions : (Array.isArray(c.settings.occasions) ? c.settings.occasions : [])
+    c.occasions = occ.map(o => ({ ...o, id: o.id || rid('o'), createdAt: o.createdAt || stamp, updatedAt: o.updatedAt || stamp }))
+    if (c.settings.occasions) delete c.settings.occasions
+    c.settingsUpdatedAt = c.settingsUpdatedAt || stamp
+    c.historyUpdatedAt = c.historyUpdatedAt || stamp
+    c.pregnancyUpdatedAt = c.pregnancyUpdatedAt || stamp
+    c.v = Math.max(c.v || 0, DATA_VERSION)
+    return c
+  }
+  // الدمج الكامل: كل قسم يُدمج باستقلال — فلا يمسح تعديلُ قسمٍ تعديلَ قسمٍ آخر.
+  mergeData(local, remote) {
+    if (!remote || !remote.settings) return { data: local, changed: false }
+    if (!local || !local.settings) return { data: this.normalizeForMerge(remote), changed: true }
+    local = this.normalizeForMerge(local); remote = this.normalizeForMerge(remote)
+    let changed = false
+    const out = { v: Math.max(local.v || DATA_VERSION, remote.v || DATA_VERSION) }
+    // السجلات اليومية: لكل تاريخ عنصرٌ مستقل، الأحدث يفوز.
+    out.logs = {}
+    const keys = new Set([...Object.keys(local.logs || {}), ...Object.keys(remote.logs || {})])
+    for (const k of keys) {
+      const a = (local.logs || {})[k], b = (remote.logs || {})[k]
+      if (a && b) { const pick = this.newerItem(a, b); out.logs[k] = pick; if (pick === b) changed = true }
+      else { out.logs[k] = a || b; if (!a) changed = true }
+    }
+    // المواعيد والمناسبات: دمج حسب id.
+    const ap = this.mergeById(local.appointments, remote.appointments); out.appointments = ap.list; if (ap.changed) changed = true
+    const oc = this.mergeById(local.occasions, remote.occasions); out.occasions = oc.list; if (oc.changed) changed = true
+    // الأقسام أحادية القيمة: الأحدث (حسب طابع القسم) يفوز.
+    const sec = (name) => {
+      const lt = local[name + 'UpdatedAt'] || '', rt = remote[name + 'UpdatedAt'] || ''
+      if (rt > lt) { out[name] = remote[name]; out[name + 'UpdatedAt'] = rt; changed = true }
+      else { out[name] = local[name]; out[name + 'UpdatedAt'] = lt }
+    }
+    sec('settings'); sec('history'); sec('pregnancy')
+    // بيانات وصفية: من أجراء آخر تعديل ومتى.
+    if ((remote.updatedAt || '') > (local.updatedAt || '')) { out.updatedAt = remote.updatedAt; out.editedBy = remote.editedBy }
+    else { out.updatedAt = local.updatedAt; out.editedBy = local.editedBy }
+    return { data: out, changed }
+  }
   async pollCloud() {
     try { if (typeof document !== 'undefined' && document.hidden) return } catch (e) {}
-    if (this._cloudT) return // حفظ محلي معلّق — لا نستبدل تعديل المستخدمة الحالي
+    if (this._cloudT || this._futureData) return // حفظ معلّق أو نسخة أحدث محليًا — لا نلمس البيانات
     const remote = await cloudLoad(this.syncKey)
-    if (remote && remote.settings && (remote.updatedAt || '') > (this.data.updatedAt || '')) {
-      const who = remote.editedBy && remote.editedBy !== this.identity ? this.identityView(remote.editedBy) : null
-      this.persist(remote)
-      this.setState({ tick: this.state.tick + 1, syncedAt: Date.now(), syncError: false })
-      if (who) this.showToast('🔄 حدّث ' + who.emoji + ' ' + who.name + ' البيانات')
-    }
+    if (!remote || !remote.settings) return
+    const { data: merged, changed } = this.mergeData(this.data, remote)
+    if (!changed) return
+    const who = remote.editedBy && remote.editedBy !== this.identity ? this.identityView(remote.editedBy) : null
+    this.persist(merged)
+    this.setState({ tick: this.state.tick + 1, syncedAt: Date.now(), syncError: false })
+    if (who) this.showToast('🔄 حدّث ' + who.emoji + ' ' + who.name + ' البيانات')
+    this.scheduleCloud() // ادفع النتيجة المدموجة ليصل ما لدينا للطرف الآخر أيضًا
   }
   async syncFromCloud() {
+    if (this._futureData) { this.setState({ syncing: false, syncError: true }); this.showToast('⚠️ بيانات هذا الجهاز أحدث من المتوقّع — تم إيقاف المزامنة مؤقتًا'); return }
     this.setState({ syncing: true })
     const remote = await cloudLoad(this.syncKey)
     if (remote && remote.settings) {
-      const rt = remote.updatedAt || '', lt = this.data.updatedAt || ''
-      if (rt > lt) {
+      const { data: merged, changed } = this.mergeData(this.data, remote)
+      if (changed) {
         const who = remote.editedBy && remote.editedBy !== this.identity ? this.identityView(remote.editedBy) : null
-        this.persist(remote); this.setState({ tick: this.state.tick + 1, syncing: false, syncError: false, syncedAt: Date.now() })
+        this.persist(merged); this.setState({ tick: this.state.tick + 1 })
         if (who) this.showToast('🔄 حدّث ' + who.emoji + ' ' + who.name + ' البيانات')
-        return
       }
-      if (lt > rt) { const ok = await cloudSave(this.syncKey, this.data); this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt }); return }
-    } else {
-      const ok = await cloudSave(this.syncKey, this.data)
-      this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt }); return
     }
-    this.setState({ syncing: false, syncError: false, syncedAt: Date.now() })
+    const ok = await cloudSave(this.syncKey, this.data)
+    this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt })
   }
   scheduleCloud() {
+    if (this._futureData) return
     clearTimeout(this._cloudT)
     this.setState({ syncing: true })
-    this._cloudT = setTimeout(async () => {
-      const ok = await cloudSave(this.syncKey, this.data)
-      this._cloudT = null
-      this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt })
-    }, 800)
+    this._cloudT = setTimeout(() => this.pushCloud(), 800)
+  }
+  // اقرأ السحابة، ادمج معها محليًا، ثم اكتب الناتج — يقلّص نافذة فقدان التحديثات.
+  async pushCloud() {
+    this._cloudT = 'busy' // يمنع pollCloud من التداخل أثناء الكتابة
+    try {
+      const remote = await cloudLoad(this.syncKey)
+      const { data: merged } = this.mergeData(this.data, remote)
+      this.persist(merged)
+      const ok = await cloudSave(this.syncKey, merged)
+      this.setState({ tick: this.state.tick + 1, syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt })
+    } catch (e) {
+      this.setState({ syncing: false, syncError: true })
+    } finally { this._cloudT = null }
   }
 
   hap() { try { navigator.vibrate && navigator.vibrate(8) } catch (e) {} }
@@ -230,32 +354,34 @@ export default class App extends React.Component {
   }
   occasionsView() {
     const today = new Date()
-    return (this.data.settings.occasions || []).map(o => {
+    return (this.data.occasions || []).filter(o => !o.deletedAt).map(o => {
       const d = this.occDate(o), days = this.diff(d, today)
       return { id: o.id, emoji: o.emoji || '🎉', label: o.label, dateLabel: this.arShort(d), days, when: days === 0 ? 'اليوم! 🎉' : days === 1 ? 'بكرة 🎉' : 'بعد ' + days + ' يوم' }
     }).sort((a, b) => a.days - b.days)
   }
   addOccasion(label, dateStr) {
     label = (label || '').trim(); if (!label || !dateStr) return
-    const p = dateStr.split('-').map(Number)
-    const occ = { id: 'o' + Date.now().toString(36), emoji: '🎉', label, month: p[1], day: p[2] }
-    this.save({ ...this.data, settings: { ...this.data.settings, occasions: [...(this.data.settings.occasions || []), occ] } })
+    const p = dateStr.split('-').map(Number), now = NOW()
+    const occ = { id: rid('o'), emoji: '🎉', label, month: p[1], day: p[2], createdAt: now, updatedAt: now }
+    this.commit({ occasions: [...(this.data.occasions || []), occ] }, [])
     this.setState({ occLabel: '', occDateV: '' }); this.showToast('✅ أُضيفت المناسبة')
   }
-  delOccasion(id) { this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, occasions: (this.data.settings.occasions || []).filter(o => o.id !== id) } }) }
+  // حذف ناعم: نُبقي العنصر مع deletedAt حتى ينتشر الحذف للأجهزة الأخرى عبر الدمج.
+  delOccasion(id) { this.hap(); const now = NOW(); this.commit({ occasions: (this.data.occasions || []).map(o => o.id === id ? { ...o, deletedAt: now, updatedAt: now } : o) }, []) }
 
   // ---- الأسبوعان بعد التبويض ----
   twwInfo() {
     if (this.pregActive()) return { show: false }
+    // نافذة الأسبوعين = ١٤ يومًا. نعرضها حتى اليوم ١٤ فقط فلا يتجمّد العدّاد عند الرقم نفسه لأيام زائدة.
     const ov = this.ovulationEstimate().date, today = new Date(), since = this.diff(today, ov)
-    if (since < 1 || since > 17) return { show: false }
+    if (since < 1 || since > 14) return { show: false }
     const testDate = this.addDays(ov, 14), toTest = this.diff(testDate, today)
-    return { show: true, day: Math.min(since, 14), pct: Math.min(100, Math.round((since / 14) * 100)), msg: toTest > 0 ? ('اختبار الحمل المثالي بعد ' + toTest + ' ' + (toTest === 1 ? 'يوم' : 'أيام') + ' — ' + this.arShort(testDate)) : 'اليوم وقتٌ مناسب لإجراء اختبار الحمل المنزلي 🤍' }
+    return { show: true, day: since, pct: Math.min(100, Math.round((since / 14) * 100)), msg: toTest > 0 ? ('اختبار الحمل المثالي بعد ' + toTest + ' ' + (toTest === 1 ? 'يوم' : 'أيام') + ' — ' + this.arShort(testDate)) : 'اليوم وقتٌ مناسب لإجراء اختبار الحمل المنزلي 🤍' }
   }
 
   // ---- المواعيد الطبية ----
   apptsView() {
-    return [...(this.data.appointments || [])].sort((a, b) => a.date < b.date ? -1 : 1).map(a => {
+    return (this.data.appointments || []).filter(a => !a.deletedAt).sort((a, b) => a.date < b.date ? -1 : 1).map(a => {
       const d = this.parse(a.date), days = this.diff(d, new Date())
       return { id: a.id, type: a.type, note: a.note, dateLabel: this.arLong(d), when: days < 0 ? 'مضى' : days === 0 ? 'اليوم' : days === 1 ? 'بكرة' : 'بعد ' + days + ' يوم', past: days < 0 }
     })
@@ -263,11 +389,11 @@ export default class App extends React.Component {
   addAppt() {
     const date = this.state.apDate, type = (this.state.apType || '').trim(), note = (this.state.apNote || '').trim()
     if (!date || !type) { if (typeof alert === 'function') alert('اكتبي نوع الموعد والتاريخ.'); return }
-    const ap = { id: 'a' + Date.now().toString(36), date, type, note }
-    this.save({ ...this.data, appointments: [...(this.data.appointments || []), ap] })
+    const now = NOW(), ap = { id: rid('a'), date, type, note, createdAt: now, updatedAt: now }
+    this.commit({ appointments: [...(this.data.appointments || []), ap] }, [])
     this.setState({ apType: '', apDate: '', apNote: '' }); this.showToast('✅ أُضيف الموعد')
   }
-  delAppt(id) { this.hap(); this.save({ ...this.data, appointments: (this.data.appointments || []).filter(a => a.id !== id) }) }
+  delAppt(id) { this.hap(); const now = NOW(); this.commit({ appointments: (this.data.appointments || []).map(a => a.id === id ? { ...a, deletedAt: now, updatedAt: now } : a) }, []) }
 
   nutritionTips() {
     return {
@@ -276,49 +402,76 @@ export default class App extends React.Component {
       both: ['🌰 حمض الفوليك يوميًا للطرفين أساسي قبل الحمل.', '😴 نوم كافٍ وتقليل التوتر يوازن الهرمونات.', '⚖️ الوزن الصحي للطرفين يرفع فرص الحمل.', '🚫 قلّلوا الأطعمة المصنّعة والدهون المتحوّلة.'],
     }
   }
-  toggleVitamins() { const s = { ...this.data.settings, vitamins: { ...(this.data.settings.vitamins || {}), on: !(this.data.settings.vitamins && this.data.settings.vitamins.on) } }; this.hap(); this.save({ ...this.data, settings: s }) }
+  toggleVitamins() { const s = { ...this.data.settings, vitamins: { ...(this.data.settings.vitamins || {}), on: !(this.data.settings.vitamins && this.data.settings.vitamins.on) } }; this.hap(); this.commit({ settings: s }, ['settings']) }
   printReport() { try { window.print() } catch (e) {} }
 
   // ---- persistence ----
   load() {
     let d = null
     try { d = JSON.parse(localStorage.getItem('rweida_v1')) } catch (e) {}
-    // أي بيانات قديمة/تجريبية (بدون رقم الإصدار الحالي) تُمسح مرة واحدة لبداية نظيفة.
-    if (!d || !d.settings || d.v !== 5) { d = this.seed(); this.persist(d) }
+    if (!d || !d.settings) { d = this.seed(); this.persist(d); this.data = d; return }
     this.data = d
+    // نسخة أحدث من المعروفة: لا نمسح البيانات — نحتفظ بها ونحذّر.
+    if (d.v > DATA_VERSION) { this._futureData = true; return }
     this.migrate()
   }
-  // إضافة الحقول الجديدة دون مسّ البيانات الموجودة.
+  // ترقية البيانات تدريجيًا مع الاحتفاظ الكامل بالموجود (لا مسح أبدًا).
   migrate() {
-    const d = this.data, s = d.settings; let changed = false
-    if (!Array.isArray(s.occasions)) {
-      s.occasions = [
-        { id: 'eng', emoji: '💍', label: 'الملكة', month: 3, day: 22 },
-        { id: 'wed', emoji: '💒', label: 'ذكرى الزواج', month: 5, day: 29 },
-        { id: 'bh', emoji: '🎂', label: 'ميلاد عبدالرحمن', month: 11, day: 14, hideAge: true },
-        { id: 'bw', emoji: '🎂', label: 'ميلاد رويدا', month: 11, day: 30, hideAge: true },
-      ]; changed = true
-    }
+    const d = this.data; let changed = false
+    // ضمان الحقول الأساسية (متوافقة مع إصدارات ٥ وما قبلها).
+    const s = d.settings
     if (!Array.isArray(d.appointments)) { d.appointments = []; changed = true }
+    if (!s.reminders) { s.reminders = { fertile: true, ovulation: true, period: true, test: false }; changed = true }
     if (!s.vitamins) { s.vitamins = { on: true, hour: 21 }; changed = true }
     if (!s.msgPreset) { s.msgPreset = 'medium'; changed = true }
     if (s.fertileBoost === undefined) { s.fertileBoost = true; changed = true }
+    // ترقية v5 → v6: إضافة طوابع زمنية لكل عنصر/قسم لدعم الدمج على مستوى العنصر.
+    if (!d.v || d.v < 6) { this.migrateV5ToV6(d); changed = true }
     if (changed) this.persist(d)
     return changed
   }
-  setMsgPreset(p) { this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, msgPreset: p } }); this.showToast('✅ تم تحديث جرعة الرسائل') }
-  toggleBoost() { this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, fertileBoost: !this.data.settings.fertileBoost } }) }
+  // v5→v6: لا نحذف شيئًا — نضيف فقط معرّفات وطوابع زمنية، وننقل المناسبات لأعلى المستند.
+  migrateV5ToV6(d) {
+    const stamp = d.updatedAt || '2020-01-01T00:00:00.000Z'
+    // نسخة احتياطية تلقائية قبل الترقية (احتياطًا).
+    try { localStorage.setItem('rweida_v1_backup_pre_v6', JSON.stringify(d)) } catch (e) {}
+    d.logs = d.logs || {}
+    for (const k in d.logs) { if (d.logs[k] && !d.logs[k].updatedAt) d.logs[k].updatedAt = stamp }
+    d.appointments = (d.appointments || []).map(a => ({ ...a, id: a.id || rid('a'), createdAt: a.createdAt || stamp, updatedAt: a.updatedAt || stamp }))
+    // المناسبات: تنتقل من settings.occasions إلى المستوى الأعلى مع معرّفات وطوابع.
+    const legacyOcc = Array.isArray(d.occasions) ? d.occasions : (Array.isArray(d.settings.occasions) ? d.settings.occasions : [])
+    d.occasions = legacyOcc.map(o => ({ ...o, id: o.id || rid('o'), createdAt: o.createdAt || stamp, updatedAt: o.updatedAt || stamp }))
+    if (d.settings.occasions) delete d.settings.occasions
+    d.settingsUpdatedAt = d.settingsUpdatedAt || stamp
+    d.historyUpdatedAt = d.historyUpdatedAt || stamp
+    d.pregnancyUpdatedAt = d.pregnancyUpdatedAt || stamp
+    d.v = DATA_VERSION
+  }
+  setMsgPreset(p) { this.hap(); this.commit({ settings: { ...this.data.settings, msgPreset: p } }, ['settings']); this.showToast('✅ تم تحديث جرعة الرسائل') }
+  toggleBoost() { this.hap(); this.commit({ settings: { ...this.data.settings, fertileBoost: !this.data.settings.fertileBoost } }, ['settings']) }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
-  save(d) { d = { ...d, updatedAt: new Date().toISOString(), editedBy: this.identity }; this.persist(d); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud() }
+  // الحفظ العام: يطبع الطوابع الزمنية للأقسام المعدّلة، يخزّن محليًا، ثم يزامن بالدمج.
+  commit(patch, sections) {
+    const now = NOW()
+    const d = { ...this.data, ...patch, updatedAt: now, editedBy: this.identity }
+    for (const sec of (sections || [])) d[sec + 'UpdatedAt'] = now
+    this.persist(d); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud()
+  }
+  // متوافق مع النداءات القديمة: يحفظ كامل الكائن مع تحديث طوابع كل الأقسام (للاستيراد/إعادة الضبط).
+  save(d) { this.persist({ ...d, updatedAt: NOW(), editedBy: this.identity }); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud() }
   seed() {
-    // بداية نظيفة بلا بيانات تجريبية. آخر دورة ٢٣ يونيو، والدورة السابقة ٢٧ مايو
-    // (دورة مكتملة طولها ٢٧ يومًا)، كلاهما مسجّل كبداية دورة. القيم قابلة للتعديل.
-    const periodStart = () => ({ ...this.emptyLog(), flow: 'متوسط' })
+    // بداية محايدة بلا أي بيانات شخصية. التواريخ والأسماء يدخلها المستخدم لاحقًا.
+    // مهم: طوابع الأقسام تبدأ بقيمة قديمة جدًا (EPOCH) كي تخسر دائمًا أمام بيانات السحابة الحقيقية
+    // عند أول مزامنة على جهاز جديد — فلا يمسح القالب الفارغ إعدادات/سجلّ الزوجين.
+    const today = this.iso(new Date()), stamp = '1970-01-01T00:00:00.000Z'
     return {
-      v: 5,
-      settings: { lastPeriod: '2026-06-23', cycleLength: 27, periodLength: 5, theme: 'light', wife: 'رويدا', husband: 'عبدالرحمن', reminders: { fertile: true, ovulation: true, period: true, test: false } },
-      history: [27],
-      logs: { '2026-05-27': periodStart(), '2026-06-23': periodStart() },
+      v: DATA_VERSION,
+      settings: { lastPeriod: today, cycleLength: 28, periodLength: 5, theme: 'light', wife: 'الزوجة', husband: 'الزوج', reminders: { fertile: true, ovulation: true, period: true, test: false }, vitamins: { on: true, hour: 21 }, msgPreset: 'medium', fertileBoost: true },
+      history: [],
+      logs: {},
+      appointments: [],
+      occasions: [],
+      settingsUpdatedAt: stamp, historyUpdatedAt: stamp, pregnancyUpdatedAt: stamp, updatedAt: stamp,
     }
   }
 
@@ -336,11 +489,42 @@ export default class App extends React.Component {
     let cd = this.diff(today, last) % L; if (cd < 0) cd += L
     return { last, L, P, next, ovu, fS, fE, today, cycleDay: cd + 1, dto: this.diff(ovu, today), dtp: this.diff(next, today) }
   }
+  // محرك الحساب الموحّد — مصدر واحد للمرحلة/التبويض/نافذة الخصوبة/الاحتمال/العد التنازلي.
+  // يأخذ بيانات LH/الحرارة في الاعتبار فتنعكس على كل النتائج معًا (لا تناقض بين الأجزاء).
+  getCycleInsights(today) {
+    today = today || new Date()
+    const c = this.calc()
+    const est = this.ovulationEstimate()
+    const ovu = est.date
+    const fS = this.addDays(ovu, -5), fE = this.addDays(ovu, 1)
+    const next = est.source !== 'calc' ? this.addDays(ovu, 14) : c.next
+    const dto = this.diff(ovu, today), dtp = this.diff(next, today)
+    const offFromLast = this.diff(today, c.last)
+    let phase
+    if (offFromLast >= 0 && offFromLast < c.P) phase = 'period'
+    else if (dto === 0) phase = 'ovu'
+    else if (this.diff(today, fS) >= 0 && this.diff(fE, today) >= 0) phase = 'fertile'
+    else if (dtp >= 0 && dtp <= 3) phase = 'pred'
+    else phase = 'normal'
+    return {
+      last: c.last, L: c.L, P: c.P,
+      ovuDate: ovu, fertileStart: fS, fertileEnd: fE, nextDate: next,
+      cycleDay: c.cycleDay, daysToOvu: dto, daysToPeriod: dtp,
+      phase, conceptionPct: this.conceptionPct(today),
+      source: est.source, confidence: est.source === 'lh' ? 'مرتفعة' : est.source === 'bbt' ? 'متوسطة' : 'تقويمية',
+    }
+  }
+  // تلوين أيام التقويم — مثبَّت على يوم التبويض المُقدّر نفسه ليتطابق مع الرئيسية.
   phaseOf(date) {
-    const s = this.data.settings, L = s.cycleLength, P = s.periodLength, last = this.parse(s.lastPeriod)
-    let off = this.diff(date, last) % L; if (off < 0) off += L; const ov = L - 14
-    if (off < P) return 'period'; if (off === ov) return 'ovu'; if (off >= ov - 5 && off <= ov + 1) return 'fertile'
-    if (off >= L - 3) return 'pred'; return 'normal'
+    const ins = this.getCycleInsights()
+    const L = ins.L, P = ins.P, last = ins.last
+    let off = this.diff(date, last) % L; if (off < 0) off += L
+    let ov = this.diff(ins.ovuDate, last) % L; if (ov < 0) ov += L
+    if (off < P) return 'period'
+    if (off === ov) return 'ovu'
+    if (off >= ov - 5 && off <= ov + 1) return 'fertile'
+    if (off >= L - 3) return 'pred'
+    return 'normal'
   }
   arLong(d) { return new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long' }).format(d) }
   arShort(d) { return new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { day: 'numeric', month: 'long' }).format(d) }
@@ -348,9 +532,9 @@ export default class App extends React.Component {
 
   // ---- navigation & mutations ----
   go(s) { this.hap(); this.setState({ screen: s, saved: false }); if (s === 'settings' || s === 'us') this.loadCustoms() }
-  bumpCycle(n) { const s = { ...this.data.settings }; s.cycleLength = Math.max(21, Math.min(40, s.cycleLength + n)); this.save({ ...this.data, settings: s }) }
-  bumpPeriod(n) { const s = { ...this.data.settings }; s.periodLength = Math.max(2, Math.min(10, s.periodLength + n)); this.save({ ...this.data, settings: s }) }
-  setLast(v) { if (!v) return; const s = { ...this.data.settings, lastPeriod: v }; this.save({ ...this.data, settings: s }) }
+  bumpCycle(n) { const s = { ...this.data.settings }; s.cycleLength = Math.max(21, Math.min(40, s.cycleLength + n)); this.commit({ settings: s }, ['settings']) }
+  bumpPeriod(n) { const s = { ...this.data.settings }; s.periodLength = Math.max(2, Math.min(10, s.periodLength + n)); this.commit({ settings: s }, ['settings']) }
+  setLast(v) { if (!v) return; const s = { ...this.data.settings, lastPeriod: v }; this.commit({ settings: s }, ['settings']) }
   // تأكيد بدء الدورة فعليًا: يسجّل طول الدورة المنتهية، يحدّث تاريخ آخر دورة،
   // ويعيد ضبط متوسط طول الدورة ليُحسب التبويض بدقة من البيانات الحقيقية.
   confirmPeriod(startISO) {
@@ -363,14 +547,14 @@ export default class App extends React.Component {
     const cycleLength = Math.max(21, Math.min(40, avg))
     // علّم أيام الدورة المتوقّعة فقط (من يوم البدء حتى طول الدورة) كأيام حيض — لا كل أيام الشهر.
     const P = Math.max(2, Math.min(10, s.periodLength || 5))
-    const logs = { ...this.data.logs }
+    const logs = { ...this.data.logs }, now = NOW()
     for (let i = 0; i < P; i++) {
       const iso = this.iso(this.addDays(this.parse(startISO), i))
       const day = logs[iso] || this.emptyLog()
-      logs[iso] = { ...day, flow: day.flow || (i === 0 ? 'متوسط' : 'خفيف') }
+      logs[iso] = { ...day, flow: day.flow || (i === 0 ? 'متوسط' : 'خفيف'), updatedAt: now }
     }
     this.hap()
-    this.save({ ...this.data, settings: { ...s, lastPeriod: startISO, cycleLength }, history: hist, logs })
+    this.commit({ settings: { ...s, lastPeriod: startISO, cycleLength }, history: hist, logs }, ['settings', 'history'])
     this.showToast('🩸 تم تأكيد بدء الدورة')
   }
   // تأكيد انتهاء الدورة: يضبط طول الحيض الفعلي ويمسح علامة الحيض عمّا بعد يوم الانتهاء.
@@ -381,22 +565,41 @@ export default class App extends React.Component {
     if (span < 1 || span > 15) return
     const periodLength = Math.max(2, Math.min(10, span))
     // امسح علامة الحيض عن أي يوم بعد يوم الانتهاء ضمن نافذة الدورة الحالية.
-    const logs = { ...this.data.logs }
+    const logs = { ...this.data.logs }, now = NOW()
     for (let i = span; i < 14; i++) {
       const iso = this.iso(this.addDays(start, i))
-      if (logs[iso] && logs[iso].flow) logs[iso] = { ...logs[iso], flow: '' }
+      if (logs[iso] && logs[iso].flow) logs[iso] = { ...logs[iso], flow: '', updatedAt: now }
     }
     this.hap()
-    this.save({ ...this.data, settings: { ...s, periodLength }, logs })
+    this.commit({ settings: { ...s, periodLength }, logs }, ['settings'])
     this.showToast('✅ تم تسجيل انتهاء الدورة')
   }
-  toggleTheme() { const s = { ...this.data.settings, theme: this.data.settings.theme === 'dark' ? 'light' : 'dark' }; this.hap(); this.save({ ...this.data, settings: s }) }
-  toggleRem(k) { const r = { ...this.data.settings.reminders }; r[k] = !r[k]; this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, reminders: r } }) }
-  resetAll() { if (typeof confirm === 'function' && !confirm('سيتم حذف جميع البيانات. متابعة؟')) return; try { localStorage.removeItem('rweida_v1') } catch (e) {} const d = this.seed(); d.updatedAt = new Date().toISOString(); this.persist(d); this.setState({ tick: this.state.tick + 1, screen: 'home' }); this.scheduleCloud() }
+  toggleTheme() { const s = { ...this.data.settings, theme: this.data.settings.theme === 'dark' ? 'light' : 'dark' }; this.hap(); this.commit({ settings: s }, ['settings']) }
+  toggleRem(k) { const r = { ...this.data.settings.reminders }; r[k] = !r[k]; this.hap(); this.commit({ settings: { ...this.data.settings, reminders: r } }, ['settings']) }
+  // تحديث اسم الزوج/الزوجة من الإعدادات أو onboarding.
+  setName(which, val) { const s = { ...this.data.settings, [which]: val }; this.commit({ settings: s }, ['settings']) }
+  openResetModal() { this.hap(); this.setState({ resetModal: true, resetText: '' }) }
+  // حذف من هذا الجهاز فقط: لا يرفع شيئًا للسحابة — بيانات الشريك تبقى سليمة.
+  resetLocalOnly() {
+    try { localStorage.removeItem('rweida_v1') } catch (e) {}
+    const d = this.seed(); this.persist(d)
+    this.setState({ resetModal: false, resetText: '', tick: this.state.tick + 1, screen: 'home' })
+    this.showToast('🧹 تم مسح بيانات هذا الجهاز فقط')
+  }
+  // حذف من كل الأجهزة: يتطلب كتابة عبارة التأكيد بالضبط، ثم يستبدل بيانات السحابة (حذف نهائي مقصود).
+  async resetAllDevices() {
+    if ((this.state.resetText || '').trim() !== 'حذف من كل الأجهزة') { this.showToast('اكتبي عبارة التأكيد بالضبط'); return }
+    try { localStorage.removeItem('rweida_v1') } catch (e) {}
+    const d = this.seed(); this.persist(d)
+    this.setState({ resetModal: false, resetText: '', syncing: true, tick: this.state.tick + 1, screen: 'home' })
+    const ok = await cloudSave(this.syncKey, d)
+    this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt })
+    this.showToast(ok ? '🗑️ تم الحذف من كل الأجهزة' : '⚠️ تعذّر الحذف من السحابة')
+  }
   emptyLog() { return { flow: '', symptoms: [], mood: '', intimacy: false, ovTest: '', pregTest: '', bbt: '', weight: '', meds: false, note: '' } }
   curLog() { return this.data.logs[this.state.logISO] || this.emptyLog() }
-  patchLog(p) { const iso = this.state.logISO, l = { ...this.curLog(), ...p }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.save({ ...this.data, logs }); this.setState({ saved: false }) }
-  patchDay(iso, p) { const l = { ...(this.data.logs[iso] || this.emptyLog()), ...p }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.save({ ...this.data, logs }) }
+  patchLog(p) { const iso = this.state.logISO, l = { ...this.curLog(), ...p, updatedAt: NOW() }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.commit({ logs }, []); this.setState({ saved: false }) }
+  patchDay(iso, p) { const l = { ...(this.data.logs[iso] || this.emptyLog()), ...p, updatedAt: NOW() }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.commit({ logs }, []) }
   toggleSym(x) { const l = this.curLog(), s = l.symptoms.includes(x) ? l.symptoms.filter(y => y !== x) : [...l.symptoms, x]; this.patchLog({ symptoms: s }) }
   shiftLog(n) { this.hap(); this.setState({ logISO: this.iso(this.addDays(this.parse(this.state.logISO), n)), saved: false }) }
   doSave() { this.hap(); this.setState({ saved: true, screen: 'home' }) }
@@ -406,7 +609,7 @@ export default class App extends React.Component {
     const s = this.data.settings, L = s.cycleLength, ov = L - 14, o = this.offsetOf(date), d = o - ov
     if (o < s.periodLength) return 0; if (d === 0 || d === -1) return 4; if (d === -2) return 3; if (d === -3 || d === 1) return 2; if (d === -4 || d === -5) return 1; return 0
   }
-  bestDays() { const c = this.calc(), out = []; for (let k = -2; k <= 0; k++) { const dt = this.addDays(c.ovu, k); out.push({ key: k, label: this.arShort(dt), tag: k === 0 ? 'يوم التبويض' : (k === -1 ? 'قبل التبويض بيوم' : 'قبل التبويض بيومين'), cls: 'bd' + (k >= -1 ? ' pk' : '') }) } return out }
+  bestDays() { const ovu = this.getCycleInsights().ovuDate, out = []; for (let k = -2; k <= 0; k++) { const dt = this.addDays(ovu, k); out.push({ key: k, label: this.arShort(dt), tag: k === 0 ? 'يوم التبويض' : (k === -1 ? 'قبل التبويض بيوم' : 'قبل التبويض بيومين'), cls: 'bd' + (k >= -1 ? ' pk' : '') }) } return out }
   dayOfYear(d) { return Math.floor((this.startOf(d) - this.startOf(new Date(d.getFullYear(), 0, 1))) / 864e5) }
   dailyTip(ph) {
     const T = {
@@ -419,12 +622,12 @@ export default class App extends React.Component {
     const a = T[ph] || T.normal; return a[this.dayOfYear(new Date()) % a.length]
   }
   lateInfo() {
-    const c = this.calc(), late = this.diff(c.today, c.next)
+    const ins = this.getCycleInsights(), late = -ins.daysToPeriod
     if (late >= 1) return { show: true, days: late, msg: 'تأخّرت دورتكِ ' + late + ' ' + (late === 1 ? 'يوم' : 'أيام') + ' عن الموعد المتوقّع — يمكنكِ إجراء اختبار الحمل المنزلي الآن. للتأكيد يُنصح بمراجعة الطبيب.' }
     return { show: false }
   }
   periodPromptInfo() {
-    const c = this.calc(), late = this.diff(c.today, c.next)
+    const ins = this.getCycleInsights(), late = -ins.daysToPeriod
     if (late < -3) return { show: false }
     let title
     if (late > 0) title = 'تأخّرت دورتكِ ' + late + ' ' + (late === 1 ? 'يوم' : 'أيام')
@@ -468,7 +671,7 @@ export default class App extends React.Component {
   pregActive() { return !!(this.data.pregnancy && this.data.pregnancy.active) }
   setPregnancy(on) {
     const p = on ? { active: true, lmp: this.data.settings.lastPeriod } : { active: false }
-    this.hap(); this.save({ ...this.data, pregnancy: p })
+    this.hap(); this.commit({ pregnancy: p }, ['pregnancy'])
   }
   pregView() {
     const p = this.data.pregnancy || {}, lmp = this.parse(p.lmp || this.data.settings.lastPeriod), today = new Date()
@@ -517,17 +720,20 @@ export default class App extends React.Component {
       else new Notification(title, { body })
     } catch (e) {}
   }
+  // تذكيرات محلية تظهر عند فتح التطبيق/الرجوع إليه فقط. تعتمد المحرّك الموحّد (getCycleInsights)،
+  // ومفتاح إزالة التكرار موحّد notification:{coupleId}:{date}:{type} حتى لا يتكرّر التنبيه نفسه.
   maybeNotify() {
     if (!this.notifyEnabled() || this.pregActive()) return
-    const today = new Date(), tISO = this.iso(today), c = this.calc(), ov = this.ovulationEstimate().date
+    const today = new Date(), tISO = this.iso(today), ins = this.getCycleInsights(today)
+    const r = this.data.settings.reminders || {}
     const events = []
-    if (this.diff(ov, today) === 0) events.push(['ovu', 'يوم التبويض اليوم 🌸', 'أعلى فرص الحمل اليوم — التوقيت مثالي.'])
+    if (ins.daysToOvu === 0) { if (r.ovulation !== false) events.push(['ovu', 'يوم التبويض اليوم 🌸', 'أعلى فرص الحمل اليوم — التوقيت مثالي.']) }
     else if (this.chanceLevel(today) >= 3) events.push(['best', 'من أفضل أيام الجماع 💞', 'أنتِ في ذروة الخصوبة — لا تفوّتي اليوم.'])
-    if (this.diff(c.fS, today) === 0) events.push(['fertile', 'بدأت نافذة الخصوبة 🌱', 'ابدأ أيام الخصوبة المرتفعة.'])
-    if (this.diff(c.next, today) === 0) events.push(['period', 'موعد الدورة المتوقّع اليوم 📅', 'إن لم تأتِ، يمكنكِ إجراء اختبار حمل.'])
-    if (this.data.settings.reminders && this.data.settings.reminders.test && this.diff(ov, today) === 1) events.push(['test', 'ذكّري نفسك باختبار التبويض 🧪', 'التبويض غدًا تقريبًا — اختبار اليوم مفيد.'])
+    if (r.fertile !== false && this.diff(ins.fertileStart, today) === 0) events.push(['fertile', 'بدأت نافذة الخصوبة 🌱', 'ابدأ أيام الخصوبة المرتفعة.'])
+    if (r.period !== false && ins.daysToPeriod === 0) events.push(['period', 'موعد الدورة المتوقّع اليوم 📅', 'إن لم تأتِ، يمكنكِ إجراء اختبار حمل.'])
+    if (r.test && ins.daysToOvu === 1) events.push(['test', 'ذكّري نفسك باختبار التبويض 🧪', 'التبويض غدًا تقريبًا — اختبار اليوم مفيد.'])
     for (const [type, title, body] of events) {
-      const k = 'rweida_n_' + tISO + '_' + type
+      const k = 'notification:' + this.syncKey + ':' + tISO + ':' + type
       let done = false; try { done = localStorage.getItem(k) === '1' } catch (e) {}
       if (!done) { this.pushNote(title, body); try { localStorage.setItem(k, '1') } catch (e) {} }
     }
@@ -542,7 +748,7 @@ export default class App extends React.Component {
     const lvl = this.chanceLevel(today), todayLog = this.data.logs[tISO]
     if (lvl >= 3 && !(todayLog && todayLog.intimacy)) tips.push({ icon: '🔥', text: 'اليوم من أعلى أيامكِ خصوبة — لا تفوّتي فرصة اليوم لزيادة احتمال الحمل.' })
     // تأكيد البدء: مرّت أيام على الموعد المتوقّع دون تأكيد الدورة.
-    const c = this.calc(), late = this.diff(c.today, c.next)
+    const late = -this.getCycleInsights(today).daysToPeriod
     if (late >= 3 && !(this.data.logs[tISO] && this.data.logs[tISO].pregTest)) tips.push({ icon: '🤍', text: 'تأخّر الموعد المتوقّع للدورة — يُنصح بإجراء اختبار حمل منزلي وتسجيل نتيجته.' })
     // دورة متغيّرة → ينصح بتتبّع اختبار التبويض لتحديد أدق.
     const h = this.data.history || []
@@ -582,33 +788,31 @@ export default class App extends React.Component {
     return { cls: '', icon: '☁', text: 'المزامنة' }
   }
   rvHome() {
-    const c = this.calc(), ph = this.phaseOf(c.today)
+    const today = new Date(), ins = this.getCycleInsights(today), ph = ins.phase
+    const dto = ins.daysToOvu, dtp = ins.daysToPeriod, cdFert = this.diff(ins.fertileStart, today)
     const pmap = { period: 'p-period', fertile: 'p-fertile', ovu: 'p-ovu', pred: 'p-period', normal: 'p-normal' }
     const lab = { period: 'فترة الدورة', fertile: 'نافذة الخصوبة', ovu: 'يوم التبويض', pred: 'اقترب موعد الدورة', normal: 'مرحلة عادية' }
     const cvar = { period: 'var(--rose)', fertile: 'var(--fertile)', ovu: 'var(--ovu)', pred: 'var(--rose)', normal: 'var(--ink2)' }
     let title, desc, chance
     if (ph === 'ovu') { title = 'اليوم هو يوم التبويض 🌟'; desc = 'أعلى فرص الحمل اليوم — التوقيت مثالي.'; chance = 'مرتفعة جدًا' }
-    else if (ph === 'fertile') { const d = c.dto; title = d > 0 ? ('باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على التبويض') : 'نافذة الخصوبة مفتوحة'; desc = 'أنتِ ضمن نافذة الخصوبة، فرص الحمل مرتفعة.'; chance = d <= 1 ? 'مرتفعة جدًا' : 'مرتفعة' }
+    else if (ph === 'fertile') { const d = dto; title = d > 0 ? ('باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على التبويض') : 'نافذة الخصوبة مفتوحة'; desc = 'أنتِ ضمن نافذة الخصوبة، فرص الحمل مرتفعة.'; chance = d <= 1 ? 'مرتفعة جدًا' : 'مرتفعة' }
     else if (ph === 'period') { title = 'فترة الدورة الشهرية'; desc = 'اعتني بنفسكِ وسجّلي الأعراض لمتابعة أدق.'; chance = 'منخفضة' }
-    else if (ph === 'pred') { const d = c.dtp; title = d > 0 ? ('باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على الدورة') : 'موعد الدورة اليوم'; desc = 'قد تبدأ الدورة قريبًا، جهّزي نفسكِ.'; chance = 'منخفضة' }
-    else { const d = c.dto; title = 'باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على التبويض'; desc = 'أنتِ خارج نافذة الخصوبة حاليًا.'; chance = 'منخفضة' }
-    const pct = Math.round((c.cycleDay / c.L) * 100), ang = pct * 3.6
+    else if (ph === 'pred') { const d = dtp; title = d > 0 ? ('باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على الدورة') : 'موعد الدورة اليوم'; desc = 'قد تبدأ الدورة قريبًا، جهّزي نفسكِ.'; chance = 'منخفضة' }
+    else { const d = Math.max(0, dto); title = 'باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على التبويض'; desc = 'أنتِ خارج نافذة الخصوبة حاليًا.'; chance = 'منخفضة' }
+    const pct = Math.round((ins.cycleDay / ins.L) * 100), ang = pct * 3.6
     const ringStyle = 'conic-gradient(' + cvar[ph] + ' ' + pct + '%, var(--track) 0)'
-    const ovE = this.ovulationEstimate()
-    const srcTxt = ovE.source === 'lh' ? 'حسب اختبار التبويض' : ovE.source === 'bbt' ? 'حسب ارتفاع الحرارة' : 'حسب التقويم'
-    // توقّع تكيّفي: عند توفّر بيانات (LH/حرارة) نُثبّت يوم التبويض ونافذة الخصوبة عليها.
-    const ovuD = ovE.source !== 'calc' ? ovE.date : c.ovu
-    const fS = this.addDays(ovuD, -5), fE = this.addDays(ovuD, 1)
+    const smart = ins.source !== 'calc'
+    const srcTxt = ins.source === 'lh' ? 'حسب اختبار التبويض' : ins.source === 'bbt' ? 'حسب ارتفاع الحرارة' : 'حسب التقويم'
     const meName = this.identity ? this.identityView(this.identity).name : this.data.settings.wife
     return {
-      greeting: 'أهلاً، ' + meName, todayLabel: this.arLong(c.today),
-      cycleDay: c.cycleDay, phaseLabel: lab[ph], phasePill: 'pill ' + pmap[ph], ringStyle, ang,
-      statusTitle: title, statusDesc: desc, chanceLabel: chance, chancePct: this.conceptionPct(c.today),
-      ovEstLabel: this.arShort(ovE.date), ovEstSmart: ovE.source !== 'calc', ovEstSrc: srcTxt,
-      ovuDateLabel: this.arShort(ovuD), nextDateLabel: this.arShort(c.next),
-      fertileRange: this.arShort(fS) + ' — ' + this.arShort(fE),
-      cdOvu: Math.max(0, c.dto), cdFertile: Math.max(0, this.diff(c.fS, c.today)), cdPeriod: Math.max(0, c.dtp),
-      cdOvuW: c.dto === 1 ? 'يوم' : 'أيام', cdFertileW: this.diff(c.fS, c.today) === 1 ? 'يوم' : 'أيام', cdPeriodW: c.dtp === 1 ? 'يوم' : 'أيام',
+      greeting: 'أهلاً، ' + meName, todayLabel: this.arLong(today),
+      cycleDay: ins.cycleDay, phaseLabel: lab[ph], phasePill: 'pill ' + pmap[ph], ringStyle, ang,
+      statusTitle: title, statusDesc: desc, chanceLabel: chance, chancePct: ins.conceptionPct,
+      ovEstLabel: this.arShort(ins.ovuDate), ovEstSmart: smart, ovEstSrc: srcTxt,
+      ovuDateLabel: this.arShort(ins.ovuDate), nextDateLabel: this.arShort(ins.nextDate),
+      fertileRange: this.arShort(ins.fertileStart) + ' — ' + this.arShort(ins.fertileEnd),
+      cdOvu: Math.max(0, dto), cdFertile: Math.max(0, cdFert), cdPeriod: Math.max(0, dtp),
+      cdOvuW: dto === 1 ? 'يوم' : 'أيام', cdFertileW: cdFert === 1 ? 'يوم' : 'أيام', cdPeriodW: dtp === 1 ? 'يوم' : 'أيام',
       dailyTip: this.dailyTip(ph), bestDays: this.bestDays(), lateAlert: this.lateInfo(), pregAlert: this.pregInfo(),
       smartTips: this.smartTips(),
       periodPrompt: this.periodPromptInfo(),
@@ -726,7 +930,7 @@ export default class App extends React.Component {
       incCycle: () => this.bumpCycle(1), decCycle: () => this.bumpCycle(-1),
       incPeriod: () => this.bumpPeriod(1), decPeriod: () => this.bumpPeriod(-1),
       remOpts: rem, themeCls: 'sw' + (s.theme === 'dark' ? ' on' : ''), onTheme: () => this.toggleTheme(),
-      themeLabel: s.theme === 'dark' ? 'الوضع الداكن' : 'الوضع الفاتح', resetData: () => this.resetAll(),
+      themeLabel: s.theme === 'dark' ? 'الوضع الداكن' : 'الوضع الفاتح', openReset: () => this.openResetModal(),
       syncKey: this.syncKey,
       syncStatus: this.state.syncing ? 'جارٍ الحفظ…' : this.state.syncError ? '⚠️ غير متصل — سيُحفظ عند عودة الاتصال' : (this.state.syncedAt ? 'محفوظ ☁️ ' + new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { hour: 'numeric', minute: 'numeric' }).format(new Date(this.state.syncedAt)) : 'بانتظار المزامنة'),
       identity: this.identity,
@@ -795,6 +999,37 @@ export default class App extends React.Component {
               </div>
             </div>
           )}
+          {this.state.resetModal && (
+            <div className="modal" onClick={() => this.setState({ resetModal: false })}>
+              <div className="modalcard" onClick={e => e.stopPropagation()} style={{ textAlign: 'right' }}>
+                <div className="modale" style={{ textAlign: 'center' }}>🗑️</div>
+                <div className="modalt" style={{ textAlign: 'center' }}>حذف البيانات</div>
+                <p className="selsum" style={{ margin: '0 0 14px' }}>اختاري نطاق الحذف. تنبيه: «الحذف من كل الأجهزة» يمسح البيانات من جميع الأجهزة المرتبطة، وليس من هذا الجهاز فقط.</p>
+                <button className="opt" style={{ width: '100%', marginBottom: 10 }} onClick={() => this.resetLocalOnly()}>🧹 حذف من هذا الجهاز فقط</button>
+                <div className="lbl" style={{ marginTop: 6 }}>لحذف الكل، اكتبي: <b>حذف من كل الأجهزة</b></div>
+                <input className="datein" type="text" aria-label="عبارة تأكيد الحذف" style={{ width: '100%', marginBottom: 10 }} value={this.state.resetText} onChange={e => this.setState({ resetText: e.target.value })} placeholder="حذف من كل الأجهزة" />
+                <button className="danger" style={{ marginBottom: 8 }} disabled={(this.state.resetText || '').trim() !== 'حذف من كل الأجهزة'} onClick={() => this.resetAllDevices()}>حذف من كل الأجهزة نهائيًا</button>
+                <button className="linkbtn" onClick={() => this.setState({ resetModal: false, resetText: '' })}>إلغاء</button>
+              </div>
+            </div>
+          )}
+          {this.state.importPreview && (
+            <div className="modal" onClick={() => this.setState({ importPreview: null })}>
+              <div className="modalcard" onClick={e => e.stopPropagation()} style={{ textAlign: 'right' }}>
+                <div className="modale" style={{ textAlign: 'center' }}>⬆️</div>
+                <div className="modalt" style={{ textAlign: 'center' }}>تأكيد الاستيراد</div>
+                <p className="selsum" style={{ margin: '0 0 12px' }}>سيتم دمج هذه البيانات مع الحالية (الأحدث لكل عنصر يُعتمد). قد ينعكس ذلك على الأجهزة الأخرى بعد المزامنة.</p>
+                <div className="info" style={{ marginBottom: 16 }}>
+                  <div className="irow"><div className="ib bp">📅</div><div><div className="it">أيام مسجّلة</div><div className="iv">{this.state.importPreview.counts.logs}</div></div></div>
+                  <div className="irow"><div className="ib bo">🩺</div><div><div className="it">مواعيد</div><div className="iv">{this.state.importPreview.counts.appts}</div></div></div>
+                  <div className="irow"><div className="ib bf">🎉</div><div><div className="it">مناسبات</div><div className="iv">{this.state.importPreview.counts.occ}</div></div></div>
+                  <div className="irow"><div className="ib bp">🔄</div><div><div className="it">دورات سابقة</div><div className="iv">{this.state.importPreview.counts.cycles}</div></div></div>
+                </div>
+                <button className="qbtn" style={{ marginBottom: 8 }} onClick={() => this.confirmImport()}>دمج واستيراد</button>
+                <button className="linkbtn" onClick={() => this.setState({ importPreview: null })}>إلغاء</button>
+              </div>
+            </div>
+          )}
           <div className="scroll">
             {g.isHome && this.renderHome(g)}
             {g.isCal && this.renderCalendar()}
@@ -811,7 +1046,7 @@ export default class App extends React.Component {
             <div className="nav">
               <button className={g.navHomeCls} onClick={g.goHome}><span className="ic">◐</span>الرئيسية</button>
               <button className={g.navCalCls} onClick={g.goCalendar}><span className="ic">▦</span>التقويم</button>
-              <button className="add" onClick={() => this.openSheet()}><span className="ic">+</span></button>
+              <button className="add" aria-label="تسجيل سريع" onClick={() => this.openSheet()}><span className="ic">+</span></button>
               <button className={g.navUsCls} onClick={g.goUs}><span className="ic">♥</span>نحن</button>
               <button className={g.navMoreCls} onClick={g.goMore}><span className="ic">☰</span>المزيد</button>
             </div>
@@ -848,7 +1083,7 @@ export default class App extends React.Component {
       <div className="screen">
         <div className="hd">
           <div><div className="hi">{v.todayLabel}</div><h1 className="nm">{v.greeting} 🤍</h1></div>
-          <button className="tbtn" onClick={g.goSettings}>⚙</button>
+          <button className="tbtn" aria-label="الإعدادات" onClick={g.goSettings}>⚙</button>
         </div>
 
         {!this.identity && (
@@ -937,7 +1172,7 @@ export default class App extends React.Component {
     const tww = this.twwInfo()
     return (
       <div className="screen">
-        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">نظرة تفصيلية</div><h1 className="nm">تفاصيل الدورة</h1></div><button className="tbtn" onClick={() => this.go('home')}>‹</button></div>
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">نظرة تفصيلية</div><h1 className="nm">تفاصيل الدورة</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('home')}>‹</button></div>
         {v.ovEstSmart && <div className="note" style={{ background: 'var(--fertile-s)', color: 'var(--fertile)', marginBottom: 15 }}>🎯 <div>التبويض المُقدّر من بياناتكِ: <b>{v.ovEstLabel}</b> ({v.ovEstSrc})</div></div>}
         <div className="ttl">العد التنازلي</div>
         <div className="cd3">
@@ -976,7 +1211,7 @@ export default class App extends React.Component {
       <div className="screen">
         <div className="hd">
           <div><div className="hi">وضع متابعة الحمل 🤰</div><h1 className="nm">مبروك {this.data.settings.wife} 🤍</h1></div>
-          <button className="tbtn" onClick={g.goSettings}>⚙</button>
+          <button className="tbtn" aria-label="الإعدادات" onClick={g.goSettings}>⚙</button>
         </div>
         <div className="card">
           <div className="ringwrap">
@@ -1017,7 +1252,7 @@ export default class App extends React.Component {
         <div className="card">
           <div className="calhd">
             <div className="mn">{v.monthLabel}</div>
-            <div className="calnav"><button className="cn" onClick={v.nextMonth}>‹</button><button className="cn" onClick={v.prevMonth}>›</button></div>
+            <div className="calnav"><button className="cn" aria-label="الشهر السابق" onClick={v.prevMonth}>›</button><button className="cn" aria-label="الشهر التالي" onClick={v.nextMonth}>‹</button></div>
           </div>
           <div className="wk">{v.weekDays.map(w => <span key={w.key}>{w.d}</span>)}</div>
           <div className="grid7">
@@ -1081,9 +1316,9 @@ export default class App extends React.Component {
       <div className="screen">
         <div className="hd"><div><div className="hi">سجّلي بياناتكِ اليومية</div><h1 className="nm">تسجيل اليوم</h1></div></div>
         <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px' }}>
-          <button className="cn" onClick={v.nextDay}>‹</button>
+          <button className="cn" aria-label="اليوم السابق" onClick={v.prevDay}>›</button>
           <div style={{ fontSize: 14.5, fontWeight: 700 }}>{v.logDateLabel}</div>
-          <button className="cn" onClick={v.prevDay}>›</button>
+          <button className="cn" aria-label="اليوم التالي" onClick={v.nextDay}>‹</button>
         </div>
         <button className={v.intimacyCls} onClick={v.toggleIntimacy} style={{ marginBottom: 15 }}>💞 تسجيل الجماع<span className="yn">{v.intimacyTxt}</span></button>
         <div className="card">
@@ -1126,7 +1361,7 @@ export default class App extends React.Component {
     const v = this.rvStats()
     return (
       <div className="screen">
-        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">اعرفي نمط دورتكِ</div><h1 className="nm">الإحصائيات</h1></div><button className="tbtn" onClick={() => this.go('more')}>‹</button></div>
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">اعرفي نمط دورتكِ</div><h1 className="nm">الإحصائيات</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('more')}>‹</button></div>
         <div className="mini">
           <div className="mc"><div className="mv">{v.avgCycle}</div><div className="ml">متوسط طول الدورة (يوم)</div></div>
           <div className="mc"><div className="mv">{v.avgPeriod}</div><div className="ml">متوسط أيام الدورة</div></div>
@@ -1176,8 +1411,19 @@ export default class App extends React.Component {
     const v = this.rvSet()
     return (
       <div className="screen">
-        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">خصّصي تجربتكِ</div><h1 className="nm">الإعدادات</h1></div><button className="tbtn" onClick={() => this.go('more')}>‹</button></div>
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">خصّصي تجربتكِ</div><h1 className="nm">الإعدادات</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('more')}>‹</button></div>
         <div className="card"><div className="couple"><div className="ch">{v.coupleLabel} 🤍</div><div className="cs">رحلة الحمل تبدأ بالتخطيط معًا</div></div></div>
+        <div className="card">
+          <div className="ttl">الأسماء</div>
+          <div className="srow">
+            <div className="sl"><div className="si2">👩</div>اسم الزوجة</div>
+            <input className="datein" type="text" aria-label="اسم الزوجة" value={this.data.settings.wife} onChange={e => this.setName('wife', e.target.value)} placeholder="الزوجة" />
+          </div>
+          <div className="srow">
+            <div className="sl"><div className="si2">👨</div>اسم الزوج</div>
+            <input className="datein" type="text" aria-label="اسم الزوج" value={this.data.settings.husband} onChange={e => this.setName('husband', e.target.value)} placeholder="الزوج" />
+          </div>
+        </div>
         <div className="card">
           <div className="ttl">بيانات الدورة</div>
           <div className="srow">
@@ -1195,28 +1441,29 @@ export default class App extends React.Component {
         </div>
         <div className="card">
           <div className="ttl">التذكيرات</div>
+          <p className="selsum" style={{ marginTop: 0 }}>التذكيرات المحلية تظهر عند فتح التطبيق أو الرجوع إليه. أما رسائل الحب من شريككِ فتصل كإشعارات فورية عبر الخادم.</p>
           <div className="srow">
             <div className="sl"><div className="si2">🔔</div>تنبيهات الجهاز</div>
             {v.notifOn ? <span style={{ fontSize: 12, color: 'var(--fertile)', fontWeight: 700 }}>مفعّلة ✓</span> : <button className="opt" style={{ flex: '0 0 auto', padding: '9px 16px' }} onClick={v.enableNotif}>تفعيل</button>}
           </div>
           <div className="srow">
             <div className="sl"><div className="si2">💊</div>تذكير الفيتامينات وحمض الفوليك (٩م)</div>
-            <button className={'sw' + (v.vitOn ? ' on' : '')} onClick={v.toggleVit}></button>
+            <button className={'sw' + (v.vitOn ? ' on' : '')} role="switch" aria-checked={v.vitOn} aria-label="تذكير الفيتامينات" onClick={v.toggleVit}></button>
           </div>
           {v.remOpts.map(r => (
             <div key={r.key} className="srow">
               <div className="sl"><div className="si2">{r.ic}</div>{r.label}</div>
-              <button className={r.cls} onClick={r.onClick}></button>
+              <button className={r.cls} role="switch" aria-checked={r.on} aria-label={r.label} onClick={r.onClick}></button>
             </div>
           ))}
         </div>
         <div className="card">
           <div className="ttl">وضع متابعة الحمل 🤰</div>
-          <div className="srow"><div className="sl"><div className="si2">🤰</div>{v.pregOn ? 'مفعّل — متابعة الحمل' : 'تفعيل عند ثبوت الحمل'}</div><button className={'sw' + (v.pregOn ? ' on' : '')} onClick={v.togglePreg}></button></div>
+          <div className="srow"><div className="sl"><div className="si2">🤰</div>{v.pregOn ? 'مفعّل — متابعة الحمل' : 'تفعيل عند ثبوت الحمل'}</div><button className={'sw' + (v.pregOn ? ' on' : '')} role="switch" aria-checked={v.pregOn} aria-label="وضع متابعة الحمل" onClick={v.togglePreg}></button></div>
         </div>
         <div className="card">
           <div className="ttl">المظهر</div>
-          <div className="srow"><div className="sl"><div className="si2">🌙</div>{v.themeLabel}</div><button className={v.themeCls} onClick={v.onTheme}></button></div>
+          <div className="srow"><div className="sl"><div className="si2">🌙</div>{v.themeLabel}</div><button className={v.themeCls} role="switch" aria-checked={this.data.settings.theme === 'dark'} aria-label="الوضع الداكن" onClick={v.onTheme}></button></div>
         </div>
         <div className="card">
           <div className="ttl">المزامنة المشتركة</div>
@@ -1241,12 +1488,12 @@ export default class App extends React.Component {
           ) : (
             <>
               <p className="selsum">أدخلي رمزًا من ٤ أرقام لقفل التطبيق عند فتحه.</p>
-              <div className="fld"><input className="num" type="number" value={this.state.pinInput} onChange={e => this.setState({ pinInput: e.target.value.slice(0, 4) })} placeholder="••••" /><button className="opt" style={{ flex: '0 0 auto', padding: '11px 16px' }} onClick={() => this.setPin()}>تفعيل القفل</button></div>
+              <div className="fld"><input className="num" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={4} aria-label="رمز القفل (٤ أرقام)" value={this.state.pinInput} onChange={e => this.setState({ pinInput: e.target.value.replace(/\D/g, '').slice(0, 4) })} placeholder="••••" /><button className="opt" style={{ flex: '0 0 auto', padding: '11px 16px' }} onClick={() => this.setPin()}>تفعيل القفل</button></div>
             </>
           )}
         </div>
         <div className="note">🔒 <div>البيانات مشتركة بين كل من يملك رابط التطبيق، ومحفوظة في قاعدة بيانات آمنة. هذا التطبيق لا يُغني عن استشارة الطبيب المختص.</div></div>
-        <button className="danger" onClick={v.resetData}>حذف جميع البيانات</button>
+        <button className="danger" onClick={v.openReset}>حذف البيانات…</button>
       </div>
     )
   }
@@ -1258,7 +1505,7 @@ export default class App extends React.Component {
       <div className="screen">
         <div className="hd" style={{ alignItems: 'center' }}>
           <div><div className="hi">مواعيد · تغذية · تقرير</div><h1 className="nm">الأدوات</h1></div>
-          <button className="tbtn" onClick={() => this.go('more')}>‹</button>
+          <button className="tbtn" aria-label="رجوع" onClick={() => this.go('more')}>‹</button>
         </div>
 
         <div className="card">
@@ -1310,7 +1557,7 @@ export default class App extends React.Component {
       <div className="screen report">
         <div className="hd no-print" style={{ alignItems: 'center' }}>
           <div><div className="hi">للطبيب المختص</div><h1 className="nm">تقرير الدورة</h1></div>
-          <button className="tbtn" onClick={() => this.go('tools')}>‹</button>
+          <button className="tbtn" aria-label="رجوع" onClick={() => this.go('tools')}>‹</button>
         </div>
         <div className="card">
           <div className="ttl">ملخّص لـ {s.wife}</div>
@@ -1430,7 +1677,7 @@ export default class App extends React.Component {
               <button key={k} className={'opt' + (this.data.settings.msgPreset === k ? ' on' : '')} style={{ flex: '1 0 28%' }} onClick={() => this.setMsgPreset(k)}>{l}</button>
             ))}
           </div>
-          <div className="srow" style={{ marginTop: 10 }}><div className="sl"><div className="si2">🔥</div>تكثيف في نافذة الخصوبة</div><button className={'sw' + (this.data.settings.fertileBoost ? ' on' : '')} onClick={() => this.toggleBoost()}></button></div>
+          <div className="srow" style={{ marginTop: 10 }}><div className="sl"><div className="si2">🔥</div>تكثيف في نافذة الخصوبة</div><button className={'sw' + (this.data.settings.fertileBoost ? ' on' : '')} role="switch" aria-checked={!!this.data.settings.fertileBoost} aria-label="تكثيف الرسائل في نافذة الخصوبة" onClick={() => this.toggleBoost()}></button></div>
         </div>
 
         <div className="card">
@@ -1526,7 +1773,10 @@ export default class App extends React.Component {
             {step === 1 && (
               <div className="card">
                 <div className="ttl">مين أنتما؟ 👤</div>
-                <p className="selsum">اختاري صاحب هذا الجهاز ليظهر للطرف الآخر.</p>
+                <p className="selsum">أدخلي أسماءكما، ثم اختاري صاحب هذا الجهاز.</p>
+                <div className="srow"><div className="sl"><div className="si2">👩</div>اسم الزوجة</div><input className="datein" type="text" aria-label="اسم الزوجة" value={s.wife} onChange={e => this.setName('wife', e.target.value)} placeholder="الزوجة" /></div>
+                <div className="srow"><div className="sl"><div className="si2">👨</div>اسم الزوج</div><input className="datein" type="text" aria-label="اسم الزوج" value={s.husband} onChange={e => this.setName('husband', e.target.value)} placeholder="الزوج" /></div>
+                <div className="lbl" style={{ marginTop: 12 }}>صاحب هذا الجهاز</div>
                 <div className="opts">
                   <button className={'opt' + (this.identity === 'husband' ? ' on' : '')} onClick={() => this.setIdentity('husband')}>👨 {s.husband}</button>
                   <button className={'opt' + (this.identity === 'wife' ? ' onp' : '')} onClick={() => this.setIdentity('wife')}>👩 {s.wife}</button>
