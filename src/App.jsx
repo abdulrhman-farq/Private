@@ -14,6 +14,56 @@ const DEVICE_ID = (() => {
 })()
 const rid = (p) => p + Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
 
+// أيقونات SVG موحّدة (نمط Lucide) — ترث اللون من النص وتتناسق مع الثيم بدل الإيموجي.
+const ICONS = {
+  home: <><path d="m3 10.5 9-7 9 7" /><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" /></>,
+  calendar: <><rect x="3" y="4.5" width="18" height="16" rx="2.5" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" /></>,
+  heart: <path d="M12 20s-7-4.6-9.2-9C1.4 7.9 3 4.5 6.3 4.5c2 0 3.1 1.2 3.7 2.1.6-.9 1.8-2.1 3.7-2.1 3.3 0 4.9 3.4 3.5 6.5C19 15.4 12 20 12 20Z" />,
+  menu: <><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></>,
+  plus: <><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></>,
+  settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" /></>,
+  'chevron-right': <polyline points="9 6 15 12 9 18" />,
+  'chevron-left': <polyline points="15 6 9 12 15 18" />,
+  cloud: <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />,
+  check: <polyline points="20 6 9 17 4 12" />,
+  trash: <><path d="M3 6h18" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" /><path d="M6 6l1 14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-14" /></>,
+  download: <><path d="M12 3v12" /><polyline points="7 10 12 15 17 10" /><path d="M5 21h14" /></>,
+  upload: <><path d="M12 15V3" /><polyline points="7 8 12 3 17 8" /><path d="M5 21h14" /></>,
+  bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>,
+  x: <><line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" /></>,
+  edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>,
+  sparkle: <path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4Z" />,
+}
+function Icon({ name, className }) {
+  return (
+    <svg className={'icon' + (className ? ' ' + className : '')} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {ICONS[name] || null}
+    </svg>
+  )
+}
+
+// رقم يتصاعد بسلاسة من قيمته السابقة إلى الهدف.
+function CountUp({ value, className }) {
+  const target = Number(value) || 0
+  const [disp, setDisp] = React.useState(target)
+  const prev = React.useRef(target)
+  React.useEffect(() => {
+    const from = prev.current, to = target
+    if (from === to) { setDisp(to); return }
+    let raf, start = null
+    const step = (t) => {
+      if (start === null) start = t
+      const p = Math.min(1, (t - start) / 600)
+      const eased = 1 - Math.pow(1 - p, 3)
+      setDisp(Math.round(from + (to - from) * eased))
+      if (p < 1) raf = requestAnimationFrame(step); else prev.current = to
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [target])
+  return <span className={className}>{disp}</span>
+}
+
 // أيام تبويض رويدا — تطبيق متابعة الدورة والخصوبة.
 // المزامنة تعتمد دمجًا على مستوى العنصر (لا استبدالًا كاملًا) لمنع فقدان البيانات بين جهازين.
 export default class App extends React.Component {
@@ -806,7 +856,7 @@ export default class App extends React.Component {
     const meName = this.identity ? this.identityView(this.identity).name : this.data.settings.wife
     return {
       greeting: 'أهلاً، ' + meName, todayLabel: this.arLong(today),
-      cycleDay: ins.cycleDay, phaseLabel: lab[ph], phasePill: 'pill ' + pmap[ph], ringStyle, ang,
+      cycleDay: ins.cycleDay, phaseLabel: lab[ph], phasePill: 'pill ' + pmap[ph], ringStyle, ang, ringColor: cvar[ph], ringPct: pct,
       statusTitle: title, statusDesc: desc, chanceLabel: chance, chancePct: ins.conceptionPct,
       ovEstLabel: this.arShort(ins.ovuDate), ovEstSmart: smart, ovEstSrc: srcTxt,
       ovuDateLabel: this.arShort(ins.ovuDate), nextDateLabel: this.arShort(ins.nextDate),
@@ -963,6 +1013,21 @@ export default class App extends React.Component {
     }
   }
 
+  // حلقة تقدّم SVG (يستبدل conic-gradient): أنعم وأدق وقابلة للتحريك عبر stroke-dashoffset.
+  renderRing(pct, colorVar, center) {
+    const C = 2 * Math.PI * 44
+    const p = Math.max(0, Math.min(100, pct || 0))
+    return (
+      <div className="ringbox">
+        <svg className="ring-svg" viewBox="0 0 100 100">
+          <circle className="ring-track" cx="50" cy="50" r="44" />
+          <circle className="ring-prog" cx="50" cy="50" r="44" style={{ stroke: colorVar, strokeDasharray: C, strokeDashoffset: C * (1 - p / 100) }} />
+        </svg>
+        <div className="ring-center">{center}</div>
+      </div>
+    )
+  }
+
   render() {
     const g = this.rvGlobal()
     if (this.state.locked) return this.renderLock(g)
@@ -983,7 +1048,7 @@ export default class App extends React.Component {
           {g.showNav && (
             <div className="topbar">
               <button className={'syncbadge ' + g.sync.cls} onClick={g.goSettings} title="حالة المزامنة">
-                <span className="si">{g.sync.icon}</span>{g.sync.text}
+                <span className="si"><Icon name="cloud" /></span>{g.sync.text}
                 {g.meEmoji && <span className="me">{g.meEmoji}</span>}
               </button>
             </div>
@@ -1044,11 +1109,11 @@ export default class App extends React.Component {
           </div>
           {g.showNav && (
             <div className="nav">
-              <button className={g.navHomeCls} onClick={g.goHome}><span className="ic">◐</span>الرئيسية</button>
-              <button className={g.navCalCls} onClick={g.goCalendar}><span className="ic">▦</span>التقويم</button>
-              <button className="add" aria-label="تسجيل سريع" onClick={() => this.openSheet()}><span className="ic">+</span></button>
-              <button className={g.navUsCls} onClick={g.goUs}><span className="ic">♥</span>نحن</button>
-              <button className={g.navMoreCls} onClick={g.goMore}><span className="ic">☰</span>المزيد</button>
+              <button className={g.navHomeCls} onClick={g.goHome}><span className="ic"><Icon name="home" /></span>الرئيسية</button>
+              <button className={g.navCalCls} onClick={g.goCalendar}><span className="ic"><Icon name="calendar" /></span>التقويم</button>
+              <button className="add" aria-label="تسجيل سريع" onClick={() => this.openSheet()}><span className="ic"><Icon name="plus" /></span></button>
+              <button className={g.navUsCls} onClick={g.goUs}><span className="ic"><Icon name="heart" /></span>نحن</button>
+              <button className={g.navMoreCls} onClick={g.goMore}><span className="ic"><Icon name="menu" /></span>المزيد</button>
             </div>
           )}
         </div>
@@ -1080,10 +1145,10 @@ export default class App extends React.Component {
     const showAppt = !showPreg && !showPeriod && apptSoon
     const showTww = !showPreg && !showPeriod && !showAppt && tww.show
     return (
-      <div className="screen">
+      <div className="screen stagger">
         <div className="hd">
           <div><div className="hi">{v.todayLabel}</div><h1 className="nm">{v.greeting} 🤍</h1></div>
-          <button className="tbtn" aria-label="الإعدادات" onClick={g.goSettings}>⚙</button>
+          <button className="tbtn" aria-label="الإعدادات" onClick={g.goSettings}><Icon name="settings" /></button>
         </div>
 
         {!this.identity && (
@@ -1099,10 +1164,9 @@ export default class App extends React.Component {
         {/* ١) بطاقة البطل — أهم شيء اليوم */}
         <div className="card">
           <div className="ringwrap">
-            <div className="ring" style={{ background: v.ringStyle }}>
-              <div className="knob" style={{ transform: `translateX(-50%) rotate(${v.ang}deg)` }}></div>
-              <div className="rin"><div className="cd">{v.cycleDay}</div><div className="cdl">اليوم من الدورة</div></div>
-            </div>
+            {this.renderRing(v.ringPct, v.ringColor, (
+              <><div className="cd"><CountUp value={v.cycleDay} /></div><div className="cdl">اليوم من الدورة</div></>
+            ))}
             <div className={v.phasePill} style={{ marginTop: 14 }}><span className="dot"></span>{v.phaseLabel}</div>
           </div>
           <div className="status">
@@ -1171,14 +1235,14 @@ export default class App extends React.Component {
     const v = this.rvHome()
     const tww = this.twwInfo()
     return (
-      <div className="screen">
-        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">نظرة تفصيلية</div><h1 className="nm">تفاصيل الدورة</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('home')}>‹</button></div>
+      <div className="screen stagger">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">نظرة تفصيلية</div><h1 className="nm">تفاصيل الدورة</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('home')}><Icon name="chevron-right" /></button></div>
         {v.ovEstSmart && <div className="note" style={{ background: 'var(--fertile-s)', color: 'var(--fertile)', marginBottom: 15 }}>🎯 <div>التبويض المُقدّر من بياناتكِ: <b>{v.ovEstLabel}</b> ({v.ovEstSrc})</div></div>}
         <div className="ttl">العد التنازلي</div>
         <div className="cd3">
-          <div className="cdc o"><div className="cv">{v.cdOvu}</div><div className="cu">{v.cdOvuW}</div><div className="ck">على التبويض</div></div>
-          <div className="cdc f"><div className="cv">{v.cdFertile}</div><div className="cu">{v.cdFertileW}</div><div className="ck">على نافذة الخصوبة</div></div>
-          <div className="cdc"><div className="cv">{v.cdPeriod}</div><div className="cu">{v.cdPeriodW}</div><div className="ck">على الدورة القادمة</div></div>
+          <div className="cdc o"><div className="cv"><CountUp value={v.cdOvu} /></div><div className="cu">{v.cdOvuW}</div><div className="ck">على التبويض</div></div>
+          <div className="cdc f"><div className="cv"><CountUp value={v.cdFertile} /></div><div className="cu">{v.cdFertileW}</div><div className="ck">على نافذة الخصوبة</div></div>
+          <div className="cdc"><div className="cv"><CountUp value={v.cdPeriod} /></div><div className="cu">{v.cdPeriodW}</div><div className="ck">على الدورة القادمة</div></div>
         </div>
         <div className="card">
           <div className="ttl">تفاصيل الدورة</div>
@@ -1208,16 +1272,16 @@ export default class App extends React.Component {
   renderPregnancy(g) {
     const v = this.pregView()
     return (
-      <div className="screen">
+      <div className="screen stagger">
         <div className="hd">
           <div><div className="hi">وضع متابعة الحمل 🤰</div><h1 className="nm">مبروك {this.data.settings.wife} 🤍</h1></div>
-          <button className="tbtn" aria-label="الإعدادات" onClick={g.goSettings}>⚙</button>
+          <button className="tbtn" aria-label="الإعدادات" onClick={g.goSettings}><Icon name="settings" /></button>
         </div>
         <div className="card">
           <div className="ringwrap">
-            <div className="ring" style={{ background: 'conic-gradient(var(--fertile) ' + v.pct + '%, var(--track) 0)' }}>
-              <div className="rin"><div className="cd">{v.wk}</div><div className="cdl">أسبوع {v.dd > 0 ? '+' + v.dd + ' يوم' : ''}</div></div>
-            </div>
+            {this.renderRing(v.pct, 'var(--fertile)', (
+              <><div className="cd"><CountUp value={v.wk} /></div><div className="cdl">أسبوع {v.dd > 0 ? '+' + v.dd + ' يوم' : ''}</div></>
+            ))}
             <div className="pill p-fertile" style={{ marginTop: 14 }}><span className="dot"></span>{v.tri}</div>
           </div>
           <div className="status">
@@ -1247,12 +1311,12 @@ export default class App extends React.Component {
   renderCalendar() {
     const v = this.rvCal()
     return (
-      <div className="screen">
+      <div className="screen stagger">
         <div className="hd"><div><div className="hi">تتبّعي دورتكِ بصريًا</div><h1 className="nm">التقويم</h1></div></div>
         <div className="card">
           <div className="calhd">
             <div className="mn">{v.monthLabel}</div>
-            <div className="calnav"><button className="cn" aria-label="الشهر السابق" onClick={v.prevMonth}>›</button><button className="cn" aria-label="الشهر التالي" onClick={v.nextMonth}>‹</button></div>
+            <div className="calnav"><button className="cn" aria-label="الشهر السابق" onClick={v.prevMonth}><Icon name="chevron-right" /></button><button className="cn" aria-label="الشهر التالي" onClick={v.nextMonth}><Icon name="chevron-left" /></button></div>
           </div>
           <div className="wk">{v.weekDays.map(w => <span key={w.key}>{w.d}</span>)}</div>
           <div className="grid7">
@@ -1313,12 +1377,12 @@ export default class App extends React.Component {
   renderLog() {
     const v = this.rvLog()
     return (
-      <div className="screen">
+      <div className="screen stagger">
         <div className="hd"><div><div className="hi">سجّلي بياناتكِ اليومية</div><h1 className="nm">تسجيل اليوم</h1></div></div>
         <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px' }}>
-          <button className="cn" aria-label="اليوم السابق" onClick={v.prevDay}>›</button>
+          <button className="cn" aria-label="اليوم السابق" onClick={v.prevDay}><Icon name="chevron-right" /></button>
           <div style={{ fontSize: 14.5, fontWeight: 700 }}>{v.logDateLabel}</div>
-          <button className="cn" aria-label="اليوم التالي" onClick={v.nextDay}>‹</button>
+          <button className="cn" aria-label="اليوم التالي" onClick={v.nextDay}><Icon name="chevron-left" /></button>
         </div>
         <button className={v.intimacyCls} onClick={v.toggleIntimacy} style={{ marginBottom: 15 }}>💞 تسجيل الجماع<span className="yn">{v.intimacyTxt}</span></button>
         <div className="card">
@@ -1360,8 +1424,8 @@ export default class App extends React.Component {
   renderStats() {
     const v = this.rvStats()
     return (
-      <div className="screen">
-        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">اعرفي نمط دورتكِ</div><h1 className="nm">الإحصائيات</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('more')}>‹</button></div>
+      <div className="screen stagger">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">اعرفي نمط دورتكِ</div><h1 className="nm">الإحصائيات</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('more')}><Icon name="chevron-right" /></button></div>
         <div className="mini">
           <div className="mc"><div className="mv">{v.avgCycle}</div><div className="ml">متوسط طول الدورة (يوم)</div></div>
           <div className="mc"><div className="mv">{v.avgPeriod}</div><div className="ml">متوسط أيام الدورة</div></div>
@@ -1410,8 +1474,8 @@ export default class App extends React.Component {
   renderSettings() {
     const v = this.rvSet()
     return (
-      <div className="screen">
-        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">خصّصي تجربتكِ</div><h1 className="nm">الإعدادات</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('more')}>‹</button></div>
+      <div className="screen stagger">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">خصّصي تجربتكِ</div><h1 className="nm">الإعدادات</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('more')}><Icon name="chevron-right" /></button></div>
         <div className="card"><div className="couple"><div className="ch">{v.coupleLabel} 🤍</div><div className="cs">رحلة الحمل تبدأ بالتخطيط معًا</div></div></div>
         <div className="card">
           <div className="ttl">الأسماء</div>
@@ -1502,10 +1566,10 @@ export default class App extends React.Component {
     const appts = this.apptsView()
     const tips = this.nutritionTips()
     return (
-      <div className="screen">
+      <div className="screen stagger">
         <div className="hd" style={{ alignItems: 'center' }}>
           <div><div className="hi">مواعيد · تغذية · تقرير</div><h1 className="nm">الأدوات</h1></div>
-          <button className="tbtn" aria-label="رجوع" onClick={() => this.go('more')}>‹</button>
+          <button className="tbtn" aria-label="رجوع" onClick={() => this.go('more')}><Icon name="chevron-right" /></button>
         </div>
 
         <div className="card">
@@ -1554,10 +1618,10 @@ export default class App extends React.Component {
     }
     const ovE = this.ovulationEstimate()
     return (
-      <div className="screen report">
+      <div className="screen stagger report">
         <div className="hd no-print" style={{ alignItems: 'center' }}>
           <div><div className="hi">للطبيب المختص</div><h1 className="nm">تقرير الدورة</h1></div>
-          <button className="tbtn" aria-label="رجوع" onClick={() => this.go('tools')}>‹</button>
+          <button className="tbtn" aria-label="رجوع" onClick={() => this.go('tools')}><Icon name="chevron-right" /></button>
         </div>
         <div className="card">
           <div className="ttl">ملخّص لـ {s.wife}</div>
@@ -1589,7 +1653,7 @@ export default class App extends React.Component {
     const occs = this.occasionsView()
     const partnerName = this.identity === 'wife' ? this.data.settings.husband : this.data.settings.wife
     return (
-      <div className="screen">
+      <div className="screen stagger">
         <div className="hd"><div><div className="hi">رحلتكما معًا</div><h1 className="nm">نحن 💞</h1></div></div>
 
         <div className="card" style={{ textAlign: 'center' }}>
@@ -1711,7 +1775,7 @@ export default class App extends React.Component {
 
   renderMore(g) {
     return (
-      <div className="screen">
+      <div className="screen stagger">
         <div className="hd"><div><div className="hi">أدوات وإعدادات</div><h1 className="nm">المزيد ☰</h1></div></div>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('stats')}>📊 الإحصائيات<span className="yn">›</span></button>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('tools')}>🩺 الأدوات (مواعيد · تغذية · تقرير)<span className="yn">›</span></button>
