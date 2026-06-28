@@ -2,6 +2,7 @@ import React from 'react'
 import { cloudLoad, cloudSave, pushSubscribe, addCustomMessage, listCustomMessages, deleteCustomMessage, sendNow, sendNudge, SHARED_KEY, VAPID_PUBLIC } from './supabase.js'
 import { prayerMinutes, nextPrayer, fmtMin, PRAYER_NAMES, PRAYER_ORDER, riyadhNowMin } from './prayer.js'
 import { MORNING, EVENING } from './athkar.js'
+import { LETTER_MD, LETTER_TITLE } from './letter.js'
 
 // إصدار مخطّط البيانات الحالي. عند رفعه نُضيف دالة ترقية بدل مسح البيانات.
 const DATA_VERSION = 6
@@ -1168,6 +1169,7 @@ export default class App extends React.Component {
             {this.state.screen === 'tools' && this.renderTools()}
             {this.state.screen === 'report' && this.renderReport()}
             {this.state.screen === 'salah' && this.renderSalah(g)}
+            {this.state.screen === 'letter' && this.renderLetter(g)}
           </div>
           {g.showNav && (
             <div className="nav">
@@ -1212,12 +1214,31 @@ export default class App extends React.Component {
     let pin = npMin - riyadhNowMin(); if (pin < 0) pin += 1440
     const pcd = pin >= 60 ? Math.floor(pin / 60) + ' س ' + (pin % 60) + ' د' : pin + ' د'
     const upcoming = this.upcomingItems()
+    // هيرو الذكرى: يظهر يوم الذكرى الشهرية وقبلها بيوم
+    const wedm = (this.data.occasions || []).find(o => o.id === 'wedm' && !o.deletedAt)
+    let anniv = null
+    if (wedm) {
+      const ad = this.occDate(wedm), adays = this.diff(ad, new Date())
+      if (adays <= 1) {
+        const a = this.parse(wedm.anchor), months = (ad.getFullYear() - a.getFullYear()) * 12 + (ad.getMonth() - a.getMonth())
+        anniv = { days: adays, months, label: months === 1 ? 'أول شهر زواج' : 'إتمام ' + months + ' شهر زواج', when: adays === 0 ? 'اليوم 🎉' : 'بكرة 🎉' }
+      }
+    }
     return (
       <div className="screen stagger">
         <div className="hd">
           <div><div className="hi">{v.todayLabel}</div><h1 className="nm">{v.greeting} 🤍</h1></div>
           <button className="tbtn" aria-label="الإعدادات" onClick={g.goSettings}><Icon name="settings" /></button>
         </div>
+
+        {anniv && (
+          <div className="card annivhero">
+            <div className="ahe">💞</div>
+            <div className="aht">{anniv.label}</div>
+            <div className="ahs">عبدالرحمن 🤍 رويدا · {anniv.when}</div>
+            <button className="qbtn" style={{ marginTop: 14 }} onClick={() => this.go('letter')}>💌 افتحي رسالتنا</button>
+          </div>
+        )}
 
         {!this.identity && (
           <div className="card">
@@ -1760,6 +1781,7 @@ export default class App extends React.Component {
           <label className="linkbtn" style={{ cursor: 'pointer' }}>📷 {this.data.settings.couplePhoto ? 'تغيير الصورة' : 'إضافة صورة'}<input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => this.setCouplePhoto(e.target.files && e.target.files[0])} /></label>
         </div>
 
+        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('letter')}>💌 رسالتنا — إلى رويدا من عبدالرحمن<span className="yn">›</span></button>
         <button className="qbtn" style={{ marginBottom: 16, fontSize: 16, padding: 18 }} onClick={() => this.nudgePartner()}>💗 نبضة شوق{partnerName ? ' لـ ' + partnerName : ''}</button>
 
         {(() => { const a = this.achievements(); return (
@@ -1882,6 +1904,38 @@ export default class App extends React.Component {
     )
   }
 
+  mdInline(text) {
+    return text.split('**').map((p, i) => i % 2 === 1 ? <b key={i}>{p}</b> : <React.Fragment key={i}>{p}</React.Fragment>)
+  }
+  renderLetterBody(md) {
+    const lines = md.split('\n'), out = []; let para = [], quote = [], key = 0
+    const flushP = () => { if (para.length) { out.push(<p key={key++} className="ltp">{this.mdInline(para.join(' '))}</p>); para = [] } }
+    const flushQ = () => { if (quote.length) { out.push(<blockquote key={key++} className="ltq">{quote.map((q, i) => <div key={i}>{this.mdInline(q)}</div>)}</blockquote>); quote = [] } }
+    for (const raw of lines) {
+      const line = raw.trim()
+      if (!line || line === '---') { flushP(); flushQ(); continue }
+      if (line.startsWith('## ')) { flushP(); flushQ(); out.push(<div key={key++} className="lth2">{line.slice(3)}</div>); continue }
+      if (line.startsWith('### ')) { flushP(); flushQ(); out.push(<div key={key++} className="lth3">{line.slice(4)}</div>); continue }
+      if (line.startsWith('# ')) continue
+      if (line.startsWith('> ')) { flushP(); quote.push(line.slice(2)); continue }
+      flushQ(); para.push(line)
+    }
+    flushP(); flushQ()
+    return out
+  }
+  renderLetter(g) {
+    return (
+      <div className="screen">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">أول شهر زواج 💞</div><h1 className="nm">رسالتنا</h1></div><button className="tbtn" onClick={() => this.go('us')}>‹</button></div>
+        <div className="card lethero">
+          <div className="lhe">💌</div>
+          <div className="lht">{LETTER_TITLE}</div>
+          <div className="lhs">عبدالرحمن 🤍 رويدا</div>
+        </div>
+        <div className="card letter">{this.renderLetterBody(LETTER_MD)}</div>
+      </div>
+    )
+  }
   renderSalah(g) {
     const s = this.data.settings
     const t = this.prayerToday()

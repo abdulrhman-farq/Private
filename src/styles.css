@@ -322,3 +322,24 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .upcrow .upl{font-size:13.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .upcrow .upd{font-size:11px;color:var(--ink2);margin-top:1px}
 .upcrow .upw{font-size:12px;font-weight:700;color:var(--rose-d);white-space:nowrap;flex-shrink:0}
+
+/* هيرو الذكرى */
+.annivhero{text-align:center;background:var(--grad);color:#fff;box-shadow:var(--shadow-lg)}
+.annivhero .ahe{font-size:44px;animation:pop .7s var(--ease-spring)}
+.annivhero .aht{font-family:'Reem Kufi';font-size:25px;font-weight:700;margin:6px 0 3px}
+.annivhero .ahs{font-size:13.5px;color:rgba(255,255,255,.92)}
+.annivhero .qbtn{background:rgba(255,255,255,.18);box-shadow:none;backdrop-filter:blur(4px)}
+
+/* رسالة الذكرى */
+.lethero{text-align:center;background:linear-gradient(160deg,var(--rose-s),var(--card))}
+.lethero .lhe{font-size:40px}
+.lethero .lht{font-family:'Reem Kufi';font-size:20px;font-weight:700;margin-top:6px;color:var(--rose-d)}
+.lethero .lhs{font-size:13px;color:var(--ink2);margin-top:3px}
+.letter{line-height:2}
+.letter .lth2{font-family:'Reem Kufi';font-size:19px;font-weight:700;color:var(--rose-d);margin:26px 0 4px;padding-top:18px;border-top:1px solid var(--line)}
+.letter .lth2:first-child{border-top:none;padding-top:0;margin-top:0}
+.letter .lth3{font-size:16px;font-weight:700;color:var(--ink);margin:20px 0 6px}
+.letter .ltp{font-size:15px;color:var(--ink);margin:0 0 14px;line-height:2.05}
+.letter .ltq{margin:0 0 18px;padding:14px 16px;background:var(--rose-s);border-radius:14px;color:var(--rose-d);font-size:15.5px;font-weight:600;line-height:1.9}
+.letter .ltq div{margin-bottom:2px}
+.letter b{color:var(--rose-d)}
