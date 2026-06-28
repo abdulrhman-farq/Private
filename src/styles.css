@@ -307,3 +307,18 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .prayerchip .pcr{display:flex;flex-direction:column;align-items:flex-start;font-size:15px;font-weight:700;color:var(--rose-d);white-space:nowrap}
 .prayerchip .pcr .pcd{font-size:11px;font-weight:600;color:var(--ink2);margin-top:2px}
 .prayerchip:active{transform:scale(.99)}
+
+/* علامات التقويم: مناسبة وموعد */
+.grid7 .cell{position:relative}
+.occmk{position:absolute;top:3px;left:4px;font-size:10px;line-height:1}
+.mkrow .mappt{font-size:8px;line-height:1}
+
+/* أبرز ما هو قادم */
+.upc{display:flex;flex-direction:column;gap:4px}
+.upcrow{display:flex;align-items:center;gap:11px;padding:11px 6px;cursor:pointer;border-bottom:1px solid var(--line)}
+.upcrow:last-child{border-bottom:none}
+.upcrow .upe{font-size:19px;width:24px;text-align:center;flex-shrink:0}
+.upcrow .upm{flex:1;min-width:0}
+.upcrow .upl{font-size:13.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.upcrow .upd{font-size:11px;color:var(--ink2);margin-top:1px}
+.upcrow .upw{font-size:12px;font-weight:700;color:var(--rose-d);white-space:nowrap;flex-shrink:0}

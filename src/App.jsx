@@ -425,6 +425,31 @@ export default class App extends React.Component {
       return { id: o.id, emoji: o.emoji || '🎉', label: o.label, dateLabel: this.arShort(d), days, extra, monthly: !!o.monthly, when: days === 0 ? 'اليوم! 🎉' : days === 1 ? 'بكرة 🎉' : 'بعد ' + days + ' يوم' }
     }).sort((a, b) => a.days - b.days)
   }
+  // علامات اليوم: مناسبة و/أو موعد طبي على هذا التاريخ (للتقويم).
+  dayMarks(date, iso) {
+    const mo = date.getMonth() + 1, dy = date.getDate()
+    const occ = (this.data.occasions || []).find(o => !o.deletedAt && (o.monthly ? o.day === dy : (o.month === mo && o.day === dy)))
+    const appt = (this.data.appointments || []).some(a => !a.deletedAt && a.date === iso)
+    return { occ: occ ? (occ.emoji || '🎉') : null, appt }
+  }
+  // أبرز ما هو قادم: تبويض، خصوبة، دورة، مناسبات، مواعيد — مرتّبة بالأقرب.
+  upcomingItems() {
+    const today = new Date(), out = []
+    if (!this.pregActive()) {
+      const c = this.calc()
+      const ovE = this.ovulationEstimate(), ovuD = ovE.source !== 'calc' ? ovE.date : c.ovu
+      const dOvu = this.diff(ovuD, today)
+      if (dOvu >= 0) out.push({ icon: '🌸', label: 'يوم التبويض', date: ovuD, days: dOvu })
+      const fS = this.addDays(ovuD, -5), dF = this.diff(fS, today)
+      if (dF > 0) out.push({ icon: '🌱', label: 'بداية نافذة الخصوبة', date: fS, days: dF })
+      const dPer = this.diff(c.next, today)
+      if (dPer >= 0) out.push({ icon: '📅', label: 'موعد الدورة المتوقّع', date: c.next, days: dPer })
+    }
+    for (const o of this.occasionsView()) if (o.days >= 0 && o.days <= 120) out.push({ icon: o.emoji, label: o.label + (o.extra ? ' — ' + o.extra : ''), days: o.days, dateLabel: o.dateLabel })
+    for (const a of this.apptsView()) if (!a.past) out.push({ icon: '🩺', label: a.type + (a.note ? ' — ' + a.note : ''), days: a.days != null ? a.days : 0, dateLabel: a.dateLabel })
+    return out.map(it => ({ ...it, dateLabel: it.dateLabel || this.arShort(it.date), when: it.days === 0 ? 'اليوم 🎉' : it.days === 1 ? 'بكرة' : 'بعد ' + it.days + ' يوم' }))
+      .sort((a, b) => a.days - b.days).slice(0, 6)
+  }
   addOccasion(label, dateStr) {
     label = (label || '').trim(); if (!label || !dateStr) return
     const p = dateStr.split('-').map(Number), now = NOW()
@@ -449,7 +474,7 @@ export default class App extends React.Component {
   apptsView() {
     return (this.data.appointments || []).filter(a => !a.deletedAt).sort((a, b) => a.date < b.date ? -1 : 1).map(a => {
       const d = this.parse(a.date), days = this.diff(d, new Date())
-      return { id: a.id, type: a.type, note: a.note, dateLabel: this.arLong(d), when: days < 0 ? 'مضى' : days === 0 ? 'اليوم' : days === 1 ? 'بكرة' : 'بعد ' + days + ' يوم', past: days < 0 }
+      return { id: a.id, type: a.type, note: a.note, days, dateLabel: this.arLong(d), when: days < 0 ? 'مضى' : days === 0 ? 'اليوم' : days === 1 ? 'بكرة' : 'بعد ' + days + ' يوم', past: days < 0 }
     })
   }
   addAppt() {
@@ -917,9 +942,11 @@ export default class App extends React.Component {
       const date = new Date(y, m, 1 - lead + i), iso = this.iso(date), inM = date.getMonth() === m
       const lg = this.data.logs[iso], ph = this.phaseOf(date)
       let cls = 'cell ' + pmap[ph]; if (!inM) cls += ' out'; if (iso === today) cls += ' today'; if (iso === si) cls += ' sel'
+      const mk = this.dayMarks(date, iso)
       cells.push({
         key: i, day: date.getDate(), iso, cls,
         inti: !!(lg && lg.intimacy), lhpk: !!(lg && lg.ovTest === 'إيجابي'), preg: !!(lg && lg.pregTest === 'إيجابي'),
+        occ: mk.occ, appt: mk.appt,
         other: !!(lg && !lg.intimacy && lg.ovTest !== 'إيجابي' && lg.pregTest !== 'إيجابي' && (lg.ovTest || lg.pregTest || lg.bbt || lg.flow || (lg.symptoms && lg.symptoms.length) || lg.mood)),
         onClick: () => { this.hap(); this.setState({ selISO: iso, dayOpen: true }) },
       })
@@ -1184,6 +1211,7 @@ export default class App extends React.Component {
     const npMin = np.key !== 'sunrise' ? pt[np.key] : np.at
     let pin = npMin - riyadhNowMin(); if (pin < 0) pin += 1440
     const pcd = pin >= 60 ? Math.floor(pin / 60) + ' س ' + (pin % 60) + ' د' : pin + ' د'
+    const upcoming = this.upcomingItems()
     return (
       <div className="screen stagger">
         <div className="hd">
@@ -1224,6 +1252,22 @@ export default class App extends React.Component {
             <span className="pcl"><span className="pce">🕌</span><span>الصلاة القادمة · <b>{np.name}</b></span></span>
             <span className="pcr">{fmtMin(npMin)}<span className="pcd">بعد {pcd}</span></span>
           </button>
+        )}
+
+        {/* أبرز ما هو قادم — تبويض ومناسبات ومواعيد */}
+        {upcoming.length > 0 && (
+          <div className="card">
+            <div className="ttl">📌 أبرز ما هو قادم</div>
+            <div className="upc">
+              {upcoming.map((it, i) => (
+                <div key={i} className="upcrow" onClick={() => this.go('calendar')}>
+                  <span className="upe">{it.icon}</span>
+                  <div className="upm"><div className="upl">{it.label}</div><div className="upd">{it.dateLabel}</div></div>
+                  <span className="upw">{it.when}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* ٢) نصيحة اليوم */}
@@ -1370,11 +1414,13 @@ export default class App extends React.Component {
           <div className="grid7">
             {v.calCells.map(c => (
               <button key={c.key} className={c.cls} onClick={c.onClick}>
+                {c.occ && <span className="occmk">{c.occ}</span>}
                 {c.day}
                 <span className="mkrow">
                   {c.inti && <i className="mh">♥</i>}
                   {c.preg && <i className="mhg">♥</i>}
                   {c.lhpk && <i className="mp"></i>}
+                  {c.appt && <i className="mappt">🩺</i>}
                   {c.other && <i className="mn"></i>}
                 </span>
               </button>
@@ -1387,6 +1433,8 @@ export default class App extends React.Component {
             <span><i className="li-pred"></i>متوقعة</span>
             <span><i style={{ background: 'var(--rose-d)', width: 8, height: 8, borderRadius: '50%' }}></i>جماع</span>
             <span><i style={{ background: 'var(--fertile)', width: 8, height: 8, borderRadius: '50%' }}></i>حمل</span>
+            <span>🎉 مناسبة</span>
+            <span>🩺 موعد</span>
           </div>
         </div>
         <div className="card" style={{ animation: 'pop .3s' }}>
