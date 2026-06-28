@@ -400,7 +400,14 @@ export default class App extends React.Component {
 
   // ---- المناسبات ----
   occDate(o) {
-    const today = new Date(), y = today.getFullYear()
+    const today = new Date()
+    if (o.monthly) {
+      // ذكرى شهرية: تتكرر في نفس اليوم من كل شهر.
+      let d = new Date(today.getFullYear(), today.getMonth(), o.day)
+      if (this.startOf(d) < this.startOf(today)) d = new Date(today.getFullYear(), today.getMonth() + 1, o.day)
+      return d
+    }
+    const y = today.getFullYear()
     let d = new Date(y, o.month - 1, o.day)
     if (this.startOf(d) < this.startOf(today)) d = new Date(y + 1, o.month - 1, o.day)
     return d
@@ -409,7 +416,13 @@ export default class App extends React.Component {
     const today = new Date()
     return (this.data.occasions || []).filter(o => !o.deletedAt).map(o => {
       const d = this.occDate(o), days = this.diff(d, today)
-      return { id: o.id, emoji: o.emoji || '🎉', label: o.label, dateLabel: this.arShort(d), days, when: days === 0 ? 'اليوم! 🎉' : days === 1 ? 'بكرة 🎉' : 'بعد ' + days + ' يوم' }
+      let extra = ''
+      if (o.monthly && o.anchor) {
+        const a = this.parse(o.anchor)
+        const months = (d.getFullYear() - a.getFullYear()) * 12 + (d.getMonth() - a.getMonth())
+        extra = months === 1 ? 'أول شهر 🎉' : 'إتمام ' + months + ' شهر 💞'
+      }
+      return { id: o.id, emoji: o.emoji || '🎉', label: o.label, dateLabel: this.arShort(d), days, extra, monthly: !!o.monthly, when: days === 0 ? 'اليوم! 🎉' : days === 1 ? 'بكرة 🎉' : 'بعد ' + days + ' يوم' }
     }).sort((a, b) => a.days - b.days)
   }
   addOccasion(label, dateStr) {
@@ -483,6 +496,12 @@ export default class App extends React.Component {
     if (!s.prayerAdj) { s.prayerAdj = { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 }; changed = true }
     // ترقية v5 → v6: إضافة طوابع زمنية لكل عنصر/قسم لدعم الدمج على مستوى العنصر.
     if (!d.v || d.v < 6) { this.migrateV5ToV6(d); changed = true }
+    // ذكرى الزواج الشهرية — تُكمَّل في الـ٢٩ من كل شهر (زواج ٢٩ مايو ٢٠٢٦).
+    if (Array.isArray(d.occasions) && !d.occasions.some(o => o.id === 'wedm')) {
+      const now = NOW()
+      d.occasions = [...d.occasions, { id: 'wedm', emoji: '💞', label: 'ذكرى زواجنا الشهرية', monthly: true, day: 29, anchor: '2026-05-29', createdAt: now, updatedAt: now }]
+      changed = true
+    }
     if (changed) this.persist(d)
     return changed
   }
@@ -1764,8 +1783,8 @@ export default class App extends React.Component {
           <div className="ttl">🎉 مناسباتكم</div>
           {occs.map(o => (
             <div key={o.id} className="srow">
-              <div className="sl"><div className="si2">{o.emoji}</div><div><div style={{ fontWeight: 600 }}>{o.label}</div><div style={{ fontSize: 11, color: 'var(--ink2)' }}>{o.dateLabel} • {o.when}</div></div></div>
-              <button className="opt" style={{ flex: '0 0 auto', padding: '7px 11px', color: 'var(--rose-d)' }} onClick={() => this.delOccasion(o.id)}>حذف</button>
+              <div className="sl"><div className="si2">{o.emoji}</div><div><div style={{ fontWeight: 600 }}>{o.label}{o.extra && <span style={{ color: 'var(--rose-d)', fontWeight: 700 }}> — {o.extra}</span>}</div><div style={{ fontSize: 11, color: 'var(--ink2)' }}>{o.dateLabel} • {o.when}</div></div></div>
+              {!o.monthly && <button className="opt" style={{ flex: '0 0 auto', padding: '7px 11px', color: 'var(--rose-d)' }} onClick={() => this.delOccasion(o.id)}>حذف</button>}
             </div>
           ))}
           <div className="lbl" style={{ marginTop: 12 }}>إضافة مناسبة</div>
