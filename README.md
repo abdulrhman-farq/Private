@@ -1,8 +1,8 @@
 # أيام تبويض رويدا 🤍
 
-تطبيق ويب شخصي (PWA) لمتابعة الدورة الشهرية وأيام التبويض ونافذة الخصوبة وتنظيم خطة الحمل — بواجهة عربية كاملة من اليمين إلى اليسار، مع حفظ جميع البيانات محليًا على الجهاز فقط دون أي خادم.
+تطبيق ويب (PWA) لمتابعة الدورة الشهرية وأيام التبويض ونافذة الخصوبة وتنظيم خطة الحمل — بواجهة عربية كاملة من اليمين إلى اليسار. تُحفظ البيانات محليًا على الجهاز، وتُزامَن أيضًا عبر السحابة (Supabase) بين الأجهزة المشتركة في نفس رمز المزامنة، لتظهر تعديلات أي طرف لدى الآخر.
 
-A personal cycle & ovulation tracking Progressive Web App (Arabic, RTL). All data is stored locally in the browser — nothing is sent to any server.
+A cycle & ovulation tracking Progressive Web App (Arabic, RTL). Data is stored locally **and** synced to the cloud (Supabase) so paired devices on the same sync key share the same data. Sync uses item-level merge to avoid overwriting the other device's changes.
 
 ## المزايا / Features
 
@@ -17,7 +17,7 @@ A personal cycle & ovulation tracking Progressive Web App (Arabic, RTL). All dat
 
 - [Vite](https://vitejs.dev/) + [React 18](https://react.dev/)
 - خطوط: IBM Plex Sans Arabic و Reem Kufi
-- تخزين محلي عبر `localStorage` (المفتاح `rweida_v1`)
+- تخزين محلي عبر `localStorage` (المفتاح `rweida_v1`) + مزامنة سحابية عبر Supabase (دمج على مستوى العنصر)
 
 ## التشغيل / Development
 
