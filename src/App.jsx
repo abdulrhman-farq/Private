@@ -97,7 +97,7 @@ export default class App extends React.Component {
       occLabel: '', occDateV: '', apType: '', apDate: '', apNote: '',
       sheet: false,
       dayOpen: false,
-      salTab: 'times', salAdj: false,
+      salTab: 'times', salAdj: false, dhText: '', dhCount: '',
       locked: false, pinInput: '',
       obStep: 0,
       resetModal: false, resetText: '', importPreview: null,
@@ -337,6 +337,9 @@ export default class App extends React.Component {
     // المواعيد والمناسبات: دمج حسب id.
     const ap = this.mergeById(local.appointments, remote.appointments); out.appointments = ap.list; if (ap.changed) changed = true
     const oc = this.mergeById(local.occasions, remote.occasions); out.occasions = oc.list; if (oc.changed) changed = true
+    // الأذكار: قوائم مشتركة قابلة للإضافة/الحذف — دمج حسب id.
+    const am = this.mergeById(local.athkarM, remote.athkarM); out.athkarM = am.list; if (am.changed) changed = true
+    const ae = this.mergeById(local.athkarE, remote.athkarE); out.athkarE = ae.list; if (ae.changed) changed = true
     // الأقسام أحادية القيمة: الأحدث (حسب طابع القسم) يفوز.
     const sec = (name) => {
       const lt = local[name + 'UpdatedAt'] || '', rt = remote[name + 'UpdatedAt'] || ''
@@ -522,6 +525,10 @@ export default class App extends React.Component {
     if (!s.prayerAdj) { s.prayerAdj = { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 }; changed = true }
     // ترقية v5 → v6: إضافة طوابع زمنية لكل عنصر/قسم لدعم الدمج على مستوى العنصر.
     if (!d.v || d.v < 6) { this.migrateV5ToV6(d); changed = true }
+    // قوائم الأذكار المشتركة — تُزرع بمعرّفات ثابتة (m0../e0..) ليتطابق الجهازان دون تكرار.
+    const seed = '2020-01-01T00:00:00.000Z'
+    if (!Array.isArray(d.athkarM)) { d.athkarM = MORNING.map((x, i) => ({ id: 'm' + i, t: x.t, c: x.c, n: x.n || '', createdAt: seed, updatedAt: seed })); changed = true }
+    if (!Array.isArray(d.athkarE)) { d.athkarE = EVENING.map((x, i) => ({ id: 'e' + i, t: x.t, c: x.c, n: x.n || '', createdAt: seed, updatedAt: seed })); changed = true }
     // ذكرى الزواج الشهرية — تُكمَّل في الـ٢٩ من كل شهر (زواج ٢٩ مايو ٢٠٢٦).
     if (Array.isArray(d.occasions) && !d.occasions.some(o => o.id === 'wedm')) {
       const now = NOW()
@@ -555,10 +562,23 @@ export default class App extends React.Component {
   adjustPrayer(k, delta) { const adj = { ...(this.data.settings.prayerAdj || {}) }; adj[k] = Math.max(-30, Math.min(30, (adj[k] || 0) + delta)); this.hap(); this.commit({ settings: { ...this.data.settings, prayerAdj: adj } }, ['settings']) }
   // أوقات صلوات اليوم بالرياض مع تعديلات المستخدم (بالدقائق).
   prayerToday() { const t = prayerMinutes(new Date()); const adj = this.data.settings.prayerAdj || {}; const out = {}; PRAYER_ORDER.forEach(k => { out[k] = (t[k] + (adj[k] || 0) + 1440) % 1440 }); return out }
-  // عدّاد الأذكار — يُحفظ يوميًا محليًا (شخصي، لا يُزامن).
-  loadAth() { try { const r = JSON.parse(localStorage.getItem('rweida_ath') || '{}'); if (r.date === this.iso(new Date())) return r } catch (e) {} return { date: this.iso(new Date()), m: {}, e: {} } }
-  tapDhikr(period, idx, max) { const a = this.loadAth(); const cur = a[period][idx] || 0; a[period][idx] = cur + 1 >= max ? max : cur + 1; try { localStorage.setItem('rweida_ath', JSON.stringify(a)) } catch (e) {} this.hap(); this.setState({ tick: this.state.tick + 1 }) }
-  resetAth(period) { const a = this.loadAth(); a[period] = {}; try { localStorage.setItem('rweida_ath', JSON.stringify(a)) } catch (e) {} this.hap(); this.setState({ tick: this.state.tick + 1 }) }
+  // قائمة الأذكار المشتركة لكل فترة (m=الصباح · e=المساء) — بدون المحذوف.
+  athkarItems(period) { return ((period === 'e' ? this.data.athkarE : this.data.athkarM) || []).filter(x => !x.deletedAt) }
+  addDhikr(period, text, count) {
+    text = (text || '').trim(); if (!text) return
+    const key = period === 'e' ? 'athkarE' : 'athkarM', now = NOW()
+    const item = { id: rid('dh'), t: text, c: Math.max(1, Math.min(1000, parseInt(count) || 1)), n: '', createdAt: now, updatedAt: now }
+    this.hap(); this.commit({ [key]: [...(this.data[key] || []), item] }, [])
+    this.setState({ dhText: '', dhCount: '' }); this.showToast('✅ أُضيف الذكر')
+  }
+  delDhikr(period, id) {
+    const key = period === 'e' ? 'athkarE' : 'athkarM', now = NOW()
+    this.hap(); this.commit({ [key]: (this.data[key] || []).map(x => x.id === id ? { ...x, deletedAt: now, updatedAt: now } : x) }, [])
+  }
+  // عدّاد الأذكار — يُحفظ يوميًا محليًا (شخصي لكل جهاز، لا يُزامن). مفتاحه id الذكر.
+  loadAth() { try { const r = JSON.parse(localStorage.getItem('rweida_ath') || '{}'); if (r.date === this.iso(new Date())) return r } catch (e) {} return { date: this.iso(new Date()), c: {} } }
+  tapDhikr(id, max) { const a = this.loadAth(); if (!a.c) a.c = {}; const cur = a.c[id] || 0; a.c[id] = cur + 1 >= max ? max : cur + 1; try { localStorage.setItem('rweida_ath', JSON.stringify(a)) } catch (e) {} this.hap(); this.setState({ tick: this.state.tick + 1 }) }
+  resetAth(ids) { const a = this.loadAth(); if (!a.c) a.c = {}; for (const id of ids) delete a.c[id]; try { localStorage.setItem('rweida_ath', JSON.stringify(a)) } catch (e) {} this.hap(); this.setState({ tick: this.state.tick + 1 }) }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
   // الحفظ العام: يطبع الطوابع الزمنية للأقسام المعدّلة، يخزّن محليًا، ثم يزامن بالدمج.
   commit(patch, sections) {
@@ -1948,10 +1968,10 @@ export default class App extends React.Component {
     const remain = hrs > 0 ? hrs + ' س ' + mins + ' د' : mins + ' دقيقة'
     const rows = PRAYER_ORDER.map(k => ({ k, name: PRAYER_NAMES[k], min: t[k], passed: t[k] < curMin, isNext: k === np.key && k !== 'sunrise', sun: k === 'sunrise' }))
     const tab = this.state.salTab
-    const ath = this.loadAth()
-    const list = tab === 'evening' ? EVENING : MORNING
+    const ath = this.loadAth(), athc = ath.c || {}
     const pkey = tab === 'evening' ? 'e' : 'm'
-    const prog = list.reduce((a, _, i) => a + ((ath[pkey][i] || 0) >= list[i].c ? 1 : 0), 0)
+    const list = this.athkarItems(pkey)
+    const prog = list.reduce((a, dh) => a + ((athc[dh.id] || 0) >= dh.c ? 1 : 0), 0)
     return (
       <div className="screen">
         <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">بتوقيت الرياض 🕌</div><h1 className="nm">الصلاة والأذكار</h1></div><button className="tbtn" onClick={() => this.go('more')}>‹</button></div>
@@ -2001,19 +2021,30 @@ export default class App extends React.Component {
           <>
             <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px' }}>
               <span style={{ fontWeight: 700 }}>{prog} / {list.length} ✓</span>
-              <button className="opt" style={{ flex: '0 0 auto', padding: '8px 14px' }} onClick={() => this.resetAth(pkey)}>إعادة الضبط</button>
+              <button className="opt" style={{ flex: '0 0 auto', padding: '8px 14px' }} onClick={() => this.resetAth(list.map(x => x.id))}>إعادة الضبط</button>
             </div>
-            {list.map((dh, i) => {
-              const done = (ath[pkey][i] || 0)
+            {list.map(dh => {
+              const done = athc[dh.id] || 0
               const finished = done >= dh.c
               return (
-                <button key={i} className={'card dhikr' + (finished ? ' done' : '')} onClick={() => this.tapDhikr(pkey, i, dh.c)}>
+                <div key={dh.id} className={'card dhikr' + (finished ? ' done' : '')} onClick={() => this.tapDhikr(dh.id, dh.c)}>
+                  <button className="dhdel" onClick={e => { e.stopPropagation(); this.delDhikr(pkey, dh.id) }} aria-label="إزالة">✕</button>
                   <div className="dhtext">{dh.t}</div>
                   {dh.n && <div className="dhnote">{dh.n}</div>}
-                  <div className="dhfoot"><span className="dhcount">{finished ? '✓ تمّ' : done + ' / ' + dh.c}</span><span className="dhhint">اضغط للعدّ</span></div>
-                </button>
+                  <div className="dhfoot"><span className="dhcount">{finished ? '✓ تمّ' : done + ' / ' + dh.c}</span><span className="dhhint">اضغط في أي مكان للعدّ</span></div>
+                </div>
               )
             })}
+            <div className="card">
+              <div className="ttl">➕ أضِف ذكرًا جديدًا</div>
+              <textarea className="area" value={this.state.dhText} onChange={e => this.setState({ dhText: e.target.value })} placeholder="اكتب نص الذكر..." />
+              <div className="fld" style={{ marginTop: 10 }}>
+                <span style={{ fontSize: 13, color: 'var(--ink2)' }}>عدد المرات</span>
+                <input className="num" type="number" min="1" value={this.state.dhCount} onChange={e => this.setState({ dhCount: e.target.value })} placeholder="1" />
+                <button className="opt" style={{ flex: '0 0 auto', padding: '11px 16px' }} onClick={() => this.addDhikr(pkey, this.state.dhText, this.state.dhCount)}>إضافة</button>
+              </div>
+              <p className="selsum" style={{ margin: '8px 2px 0' }}>يُحفظ ويُزامن — تقرأونه أنتِ وعبدالرحمن معًا 🤍</p>
+            </div>
           </>
         )}
       </div>
