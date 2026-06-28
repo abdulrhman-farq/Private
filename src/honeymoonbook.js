@@ -5,6 +5,7 @@ export const BOOK_COVER = {
   place: 'Bali, Indonesia',
   date: 'June 2026',
   epigraph: ['Every great family begins with a story.', 'This is ours.'],
+  photo: './honeymoon/kiss.jpg',
 }
 
 // Each page: { kind, label, title?, n?, lines:[...] }  (empty string = stanza break)

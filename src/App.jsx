@@ -3,7 +3,7 @@ import { cloudLoad, cloudSave, pushSubscribe, addCustomMessage, listCustomMessag
 import { prayerMinutes, nextPrayer, fmtMin, PRAYER_NAMES, PRAYER_ORDER, riyadhNowMin } from './prayer.js'
 import { MORNING, EVENING } from './athkar.js'
 import { LETTER_MD, LETTER_TITLE } from './letter.js'
-import { HM_HERO, HM_TIMELINE, HM_MEMORIES, HM_QUOTES, HM_PLACES, HM_ACTIVITIES, HM_INSIGHTS, HM_FUTURE, HM_FILTERS } from './honeymoon.js'
+import { HM_HERO, HM_TIMELINE, HM_MEMORIES, HM_QUOTES, HM_PLACES, HM_ACTIVITIES, HM_INSIGHTS, HM_FUTURE, HM_FILTERS, HM_PHOTOS } from './honeymoon.js'
 import { BOOK_COVER, BOOK_PAGES } from './honeymoonbook.js'
 
 // إصدار مخطّط البيانات الحالي. عند رفعه نُضيف دالة ترقية بدل مسح البيانات.
@@ -100,7 +100,7 @@ export default class App extends React.Component {
       sheet: false,
       dayOpen: false,
       salTab: 'times', salAdj: false, dhText: '', dhCount: '',
-      hmOpen: false, hmFilter: 'all', bookPage: 0, bookToc: false,
+      hmOpen: false, hmFilter: 'all', bookPage: 0, bookToc: false, hmPhoto: null,
       locked: false, pinInput: '',
       obStep: 0,
       resetModal: false, resetText: '', importPreview: null,
@@ -1982,6 +1982,7 @@ export default class App extends React.Component {
         <div className="bookwrap" dir="ltr">
           {pi === 0 ? (
             <div className="bookpage cover">
+              {BOOK_COVER.photo && <div className="bcphoto"><img src={BOOK_COVER.photo} alt="" /></div>}
               <div className="bcdeco">✦</div>
               <div className="bctitle">{BOOK_COVER.title}</div>
               <div className="bcrule"></div>
@@ -2054,6 +2055,23 @@ export default class App extends React.Component {
         <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">ذكرياتنا الأولى بعد الزواج</div><h1 className="nm">شهر العسل 🏝️</h1></div><button className="tbtn" onClick={() => this.go('us')}>‹</button></div>
 
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('book')}>📖 اقرأ الكتاب — Our Honeymoon<span className="yn">›</span></button>
+
+        <div className="hmgal">
+          {HM_PHOTOS.map((p, i) => (
+            <button key={i} className={'hmgi' + (i === 0 ? ' big' : '')} onClick={() => { this.hap(); this.setState({ hmPhoto: i }) }}>
+              <img src={p.src} alt={p.cap} loading="lazy" />
+              <span className="hmgcap">{p.cap}</span>
+            </button>
+          ))}
+        </div>
+
+        {this.state.hmPhoto != null && (
+          <div className="lightbox" onClick={() => this.setState({ hmPhoto: null })}>
+            <img src={HM_PHOTOS[this.state.hmPhoto].src} alt="" onClick={e => e.stopPropagation()} />
+            <div className="lbcap">{HM_PHOTOS[this.state.hmPhoto].cap}</div>
+            <button className="lbclose" onClick={() => this.setState({ hmPhoto: null })}>✕</button>
+          </div>
+        )}
 
         <div className="hmfilters">
           {HM_FILTERS.map(ff => <button key={ff.k} className={'hmchip' + (f === ff.k ? ' on' : '')} onClick={() => { this.hap(); this.setState({ hmFilter: ff.k }) }}>{ff.label}</button>)}

@@ -116,6 +116,14 @@ export const HM_FUTURE = [
   { icon: '💝', text: 'نحفظ الذكريات لأولادنا' },
 ]
 
+export const HM_PHOTOS = [
+  { src: './honeymoon/kiss.jpg', cap: 'الشاطئ · نوسا دوا' },
+  { src: './honeymoon/garden.jpg', cap: 'حديقة المنتجع · أوبود' },
+  { src: './honeymoon/proposal.jpg', cap: 'لحظة على الشاطئ' },
+  { src: './honeymoon/dinner.jpg', cap: 'عشاء رومانسي على الرمال' },
+  { src: './honeymoon/night.jpg', cap: 'ليلة على الشاطئ' },
+]
+
 export const HM_FILTERS = [
   { k: 'all', label: 'الكل' }, { k: 'romantic', label: 'رومانسي' }, { k: 'funny', label: 'مضحك' },
   { k: 'adventure', label: 'مغامرة' }, { k: 'food', label: 'مطاعم' }, { k: 'hotel', label: 'فنادق' },
