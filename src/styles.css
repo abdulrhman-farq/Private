@@ -445,3 +445,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .lbclose{position:absolute;top:calc(env(safe-area-inset-top,0px) + 16px);left:16px;width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.16);color:#fff;font-size:18px;cursor:pointer}
 .bcphoto{width:130px;height:130px;border-radius:50%;overflow:hidden;margin-bottom:18px;border:2px solid #caa46a;box-shadow:0 10px 30px rgba(0,0,0,.4)}
 .bcphoto img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* الكتاب — النسخة العربية */
+.bookpage.ar{font-family:'IBM Plex Sans Arabic',sans-serif}
+.bookpage.ar .bptitle{font-family:'Reem Kufi'}
+.bookpage.ar .bppar{line-height:2.1;text-align:justify;font-size:15.5px}
+.bookpage.ar .bpverse{line-height:1.95;font-style:normal}
+.bctitle.ar{font-family:'Reem Kufi';letter-spacing:0;font-size:34px}
+.booktoc .tocrow{text-align:start}
+.booktoc .tocn{min-width:auto;margin-inline-end:4px}

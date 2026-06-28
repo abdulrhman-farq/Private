@@ -4,7 +4,7 @@ import { prayerMinutes, nextPrayer, fmtMin, PRAYER_NAMES, PRAYER_ORDER, riyadhNo
 import { MORNING, EVENING } from './athkar.js'
 import { LETTER_MD, LETTER_TITLE } from './letter.js'
 import { HM_HERO, HM_TIMELINE, HM_MEMORIES, HM_QUOTES, HM_PLACES, HM_ACTIVITIES, HM_INSIGHTS, HM_FUTURE, HM_FILTERS, HM_PHOTOS } from './honeymoon.js'
-import { BOOK_COVER, BOOK_PAGES } from './honeymoonbook.js'
+import { BOOK_COVER, BOOK_PAGES, BOOK_COVER_AR, BOOK_PAGES_AR } from './honeymoonbook.js'
 
 // إصدار مخطّط البيانات الحالي. عند رفعه نُضيف دالة ترقية بدل مسح البيانات.
 const DATA_VERSION = 6
@@ -100,7 +100,7 @@ export default class App extends React.Component {
       sheet: false,
       dayOpen: false,
       salTab: 'times', salAdj: false, dhText: '', dhCount: '',
-      hmOpen: false, hmFilter: 'all', bookPage: 0, bookToc: false, hmPhoto: null,
+      hmOpen: false, hmFilter: 'all', bookPage: 0, bookToc: false, hmPhoto: null, bookLang: 'ar',
       locked: false, pinInput: '',
       obStep: 0,
       resetModal: false, resetText: '', importPreview: null,
@@ -1970,32 +1970,46 @@ export default class App extends React.Component {
     )
   }
   renderBook(g) {
+    const ar = this.state.bookLang === 'ar'
+    const COVER = ar ? BOOK_COVER_AR : BOOK_COVER
+    const PAGES = ar ? BOOK_PAGES_AR : BOOK_PAGES
+    const dir = ar ? 'rtl' : 'ltr'
+    const T = ar
+      ? { keep: 'كتاب الذكرى 📖', title: 'شهر العسل', contents: 'المحتويات', cover: 'الغلاف', back: 'الغلاف الخلفي', page: 'صفحة', chap: 'الفصل ', of: ' / ' }
+      : { keep: 'Keepsake book 📖', title: 'Our Honeymoon', contents: 'Contents', cover: 'Cover', back: 'Back cover', page: 'Page', chap: 'Chapter ', of: ' / ' }
     // الصفحة 0 = الغلاف، ثم صفحات الكتاب. آخر صفحة = الغلاف الخلفي.
-    const total = BOOK_PAGES.length + 1
+    const total = PAGES.length + 1
     const pi = Math.max(0, Math.min(total - 1, this.state.bookPage))
     const goPage = n => { this.hap(); this.setState({ bookPage: Math.max(0, Math.min(total - 1, n)), bookToc: false }) }
-    const chapters = BOOK_PAGES.map((p, i) => ({ p, i: i + 1 })).filter(x => x.p.kind === 'chapter' || x.p.kind === 'letter')
+    const chapters = PAGES.map((p, i) => ({ p, i: i + 1 })).filter(x => x.p.kind === 'chapter' || x.p.kind === 'letter')
+    const prevG = ar ? '›' : '‹', nextG = ar ? '‹' : '›'
     return (
       <div className="screen">
-        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">كتاب الذكرى 📖</div><h1 className="nm">Our Honeymoon</h1></div><button className="tbtn" onClick={() => this.go('honeymoon')}>‹</button></div>
+        <div className="hd" style={{ alignItems: 'center' }}>
+          <div><div className="hi">{T.keep}</div><h1 className="nm">{T.title}</h1></div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="tbtn" style={{ width: 'auto', padding: '0 14px', fontSize: 13, fontWeight: 800 }} onClick={() => { this.hap(); this.setState({ bookLang: ar ? 'en' : 'ar' }) }}>{ar ? 'EN' : 'ع'}</button>
+            <button className="tbtn" onClick={() => this.go('honeymoon')}>‹</button>
+          </div>
+        </div>
 
-        <div className="bookwrap" dir="ltr">
+        <div className="bookwrap" dir={dir}>
           {pi === 0 ? (
             <div className="bookpage cover">
-              {BOOK_COVER.photo && <div className="bcphoto"><img src={BOOK_COVER.photo} alt="" /></div>}
+              {COVER.photo && <div className="bcphoto"><img src={COVER.photo} alt="" /></div>}
               <div className="bcdeco">✦</div>
-              <div className="bctitle">{BOOK_COVER.title}</div>
+              <div className={'bctitle' + (ar ? ' ar' : '')}>{COVER.title}</div>
               <div className="bcrule"></div>
-              <div className="bcauthors">{BOOK_COVER.authors}</div>
-              <div className="bcmeta">{BOOK_COVER.place}</div>
-              <div className="bcmeta">{BOOK_COVER.date}</div>
-              <div className="bcepi">{BOOK_COVER.epigraph.map((l, i) => <div key={i}>“{l}”</div>)}</div>
+              <div className="bcauthors">{COVER.authors}</div>
+              <div className="bcmeta">{COVER.place}</div>
+              <div className="bcmeta">{COVER.date}</div>
+              <div className="bcepi">{COVER.epigraph.map((l, i) => <div key={i}>«{l}»</div>)}</div>
             </div>
           ) : (() => {
-            const p = BOOK_PAGES[pi - 1]
+            const p = PAGES[pi - 1]
             return (
-              <div className={'bookpage ' + p.kind}>
-                {p.kind === 'chapter' && <div className="bchn">Chapter {p.n}</div>}
+              <div className={'bookpage ' + p.kind + (ar ? ' ar' : '')}>
+                {p.kind === 'chapter' && <div className="bchn">{T.chap}{p.n}</div>}
                 {p.title && <div className="bptitle">{p.title}</div>}
                 {(p.kind === 'chapter' || p.title) && <div className="bprule"></div>}
                 <div className="bpbody">
@@ -2006,23 +2020,23 @@ export default class App extends React.Component {
           })()}
         </div>
 
-        <div className="booknav" dir="ltr">
-          <button className="bnbtn" disabled={pi === 0} onClick={() => goPage(pi - 1)}>‹</button>
-          <button className="bntoc" onClick={() => { this.hap(); this.setState({ bookToc: !this.state.bookToc }) }}>{pi === 0 ? 'Cover' : pi === total - 1 ? 'Back cover' : 'Page ' + pi + ' / ' + (total - 2)} ▾</button>
-          <button className="bnbtn" disabled={pi === total - 1} onClick={() => goPage(pi + 1)}>›</button>
+        <div className="booknav" dir={dir}>
+          <button className="bnbtn" disabled={pi === 0} onClick={() => goPage(pi - 1)}>{prevG}</button>
+          <button className="bntoc" onClick={() => { this.hap(); this.setState({ bookToc: !this.state.bookToc }) }}>{pi === 0 ? T.cover : pi === total - 1 ? T.back : T.page + ' ' + pi + T.of + (total - 2)} ▾</button>
+          <button className="bnbtn" disabled={pi === total - 1} onClick={() => goPage(pi + 1)}>{nextG}</button>
         </div>
 
         {this.state.bookToc && (
-          <div className="card booktoc" dir="ltr">
-            <div className="ttl" style={{ direction: 'rtl' }}>Contents</div>
-            <button className="tocrow" onClick={() => goPage(0)}>Cover</button>
+          <div className="card booktoc" dir={dir}>
+            <div className="ttl">{T.contents}</div>
+            <button className="tocrow" onClick={() => goPage(0)}>{T.cover}</button>
             {chapters.map(c => (
               <button key={c.i} className="tocrow" onClick={() => goPage(c.i)}>
-                {c.p.kind === 'chapter' ? <span className="tocn">{c.p.n}</span> : <span className="tocn">✦</span>}
+                <span className="tocn">{c.p.kind === 'chapter' ? c.p.n : '✦'}</span>
                 <span>{c.p.title}</span>
               </button>
             ))}
-            <button className="tocrow" onClick={() => goPage(total - 1)}>Back cover</button>
+            <button className="tocrow" onClick={() => goPage(total - 1)}>{T.back}</button>
           </div>
         )}
       </div>
