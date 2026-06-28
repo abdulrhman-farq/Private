@@ -1179,6 +1179,11 @@ export default class App extends React.Component {
     const showPeriod = !showPreg && v.periodPrompt.show
     const showAppt = !showPreg && !showPeriod && apptSoon
     const showTww = !showPreg && !showPeriod && !showAppt && tww.show
+    // سطر بسيط للصلاة القادمة بالرياض
+    const pt = this.prayerToday(), np = nextPrayer(new Date())
+    const npMin = np.key !== 'sunrise' ? pt[np.key] : np.at
+    let pin = npMin - riyadhNowMin(); if (pin < 0) pin += 1440
+    const pcd = pin >= 60 ? Math.floor(pin / 60) + ' س ' + (pin % 60) + ' د' : pin + ' د'
     return (
       <div className="screen stagger">
         <div className="hd">
@@ -1212,6 +1217,14 @@ export default class App extends React.Component {
           <button className="qbtn" style={{ marginTop: 14 }} onClick={g.goLog}>＋ تسجيل اليوم</button>
           <button className="linkbtn" onClick={() => this.go('cycle')}>تفاصيل الدورة ‹</button>
         </div>
+
+        {/* الصلاة القادمة — سطر بسيط */}
+        {this.data.settings.prayer !== false && (
+          <button className="card prayerchip" onClick={() => this.go('salah')}>
+            <span className="pcl"><span className="pce">🕌</span><span>الصلاة القادمة · <b>{np.name}</b></span></span>
+            <span className="pcr">{fmtMin(npMin)}<span className="pcd">بعد {pcd}</span></span>
+          </button>
+        )}
 
         {/* ٢) نصيحة اليوم */}
         <div className="card">
