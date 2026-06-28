@@ -1,5 +1,7 @@
 import React from 'react'
 import { cloudLoad, cloudSave, pushSubscribe, addCustomMessage, listCustomMessages, deleteCustomMessage, sendNow, sendNudge, SHARED_KEY, VAPID_PUBLIC } from './supabase.js'
+import { prayerMinutes, nextPrayer, fmtMin, PRAYER_NAMES, PRAYER_ORDER, riyadhNowMin } from './prayer.js'
+import { MORNING, EVENING } from './athkar.js'
 
 // أيام تبويض رويدا — faithful React port of the Claude Design prototype.
 // All cycle math, seeding and localStorage persistence mirror the original 1:1.
@@ -30,6 +32,7 @@ export default class App extends React.Component {
       occLabel: '', occDateV: '', apType: '', apDate: '', apNote: '',
       sheet: false,
       dayOpen: false,
+      salTab: 'times', salAdj: false,
       locked: false, pinInput: '',
       obStep: 0,
     }
@@ -303,11 +306,23 @@ export default class App extends React.Component {
     if (!s.vitamins) { s.vitamins = { on: true, hour: 21 }; changed = true }
     if (!s.msgPreset) { s.msgPreset = 'medium'; changed = true }
     if (s.fertileBoost === undefined) { s.fertileBoost = true; changed = true }
+    if (s.prayer === undefined) { s.prayer = true; changed = true }
+    if (s.athkar === undefined) { s.athkar = true; changed = true }
+    if (!s.prayerAdj) { s.prayerAdj = { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 }; changed = true }
     if (changed) this.persist(d)
     return changed
   }
   setMsgPreset(p) { this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, msgPreset: p } }); this.showToast('✅ تم تحديث جرعة الرسائل') }
   toggleBoost() { this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, fertileBoost: !this.data.settings.fertileBoost } }) }
+  togglePrayer() { this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, prayer: !this.data.settings.prayer } }) }
+  toggleAthkar() { this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, athkar: !this.data.settings.athkar } }) }
+  adjustPrayer(k, delta) { const adj = { ...(this.data.settings.prayerAdj || {}) }; adj[k] = Math.max(-30, Math.min(30, (adj[k] || 0) + delta)); this.hap(); this.save({ ...this.data, settings: { ...this.data.settings, prayerAdj: adj } }) }
+  // أوقات صلوات اليوم بالرياض مع تعديلات المستخدم (بالدقائق).
+  prayerToday() { const t = prayerMinutes(new Date()); const adj = this.data.settings.prayerAdj || {}; const out = {}; PRAYER_ORDER.forEach(k => { out[k] = (t[k] + (adj[k] || 0) + 1440) % 1440 }); return out }
+  // عدّاد الأذكار — يُحفظ يوميًا محليًا (شخصي، لا يُزامن).
+  loadAth() { try { const r = JSON.parse(localStorage.getItem('rweida_ath') || '{}'); if (r.date === this.iso(new Date())) return r } catch (e) {} return { date: this.iso(new Date()), m: {}, e: {} } }
+  tapDhikr(period, idx, max) { const a = this.loadAth(); const cur = a[period][idx] || 0; a[period][idx] = cur + 1 >= max ? max : cur + 1; try { localStorage.setItem('rweida_ath', JSON.stringify(a)) } catch (e) {} this.hap(); this.setState({ tick: this.state.tick + 1 }) }
+  resetAth(period) { const a = this.loadAth(); a[period] = {}; try { localStorage.setItem('rweida_ath', JSON.stringify(a)) } catch (e) {} this.hap(); this.setState({ tick: this.state.tick + 1 }) }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
   save(d) { d = { ...d, updatedAt: new Date().toISOString(), editedBy: this.identity }; this.persist(d); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud() }
   seed() {
@@ -806,6 +821,7 @@ export default class App extends React.Component {
             {this.state.screen === 'cycle' && this.renderCycleDetails(g)}
             {this.state.screen === 'tools' && this.renderTools()}
             {this.state.screen === 'report' && this.renderReport()}
+            {this.state.screen === 'salah' && this.renderSalah(g)}
           </div>
           {g.showNav && (
             <div className="nav">
@@ -1466,10 +1482,95 @@ export default class App extends React.Component {
     return (
       <div className="screen">
         <div className="hd"><div><div className="hi">أدوات وإعدادات</div><h1 className="nm">المزيد ☰</h1></div></div>
+        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('salah')}>🕌 الصلاة والأذكار<span className="yn">›</span></button>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('stats')}>📊 الإحصائيات<span className="yn">›</span></button>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('tools')}>🩺 الأدوات (مواعيد · تغذية · تقرير)<span className="yn">›</span></button>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('settings')}>⚙️ الإعدادات<span className="yn">›</span></button>
         <div className="note" style={{ marginTop: 6 }}>💡 <div>الرسائل والمناسبات وإعدادات الزوجين انتقلت إلى تبويب «نحن 💞».</div></div>
+      </div>
+    )
+  }
+
+  renderSalah(g) {
+    const s = this.data.settings
+    const t = this.prayerToday()
+    const np = nextPrayer(new Date())
+    const adj = s.prayerAdj || {}
+    const npAt = (t[np.key] !== undefined && np.key !== 'sunrise') ? t[np.key] : np.at
+    const curMin = riyadhNowMin()
+    let inMin = npAt - curMin; if (inMin < 0) inMin += 1440
+    const hrs = Math.floor(inMin / 60), mins = inMin % 60
+    const remain = hrs > 0 ? hrs + ' س ' + mins + ' د' : mins + ' دقيقة'
+    const rows = PRAYER_ORDER.map(k => ({ k, name: PRAYER_NAMES[k], min: t[k], passed: t[k] < curMin, isNext: k === np.key && k !== 'sunrise', sun: k === 'sunrise' }))
+    const tab = this.state.salTab
+    const ath = this.loadAth()
+    const list = tab === 'evening' ? EVENING : MORNING
+    const pkey = tab === 'evening' ? 'e' : 'm'
+    const prog = list.reduce((a, _, i) => a + ((ath[pkey][i] || 0) >= list[i].c ? 1 : 0), 0)
+    return (
+      <div className="screen">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">بتوقيت الرياض 🕌</div><h1 className="nm">الصلاة والأذكار</h1></div><button className="tbtn" onClick={() => this.go('more')}>‹</button></div>
+
+        <div className="seg" style={{ marginBottom: 14 }}>
+          <button className={'segb' + (tab === 'times' ? ' on' : '')} onClick={() => this.setState({ salTab: 'times' })}>أوقات الصلاة</button>
+          <button className={'segb' + (tab === 'morning' ? ' on' : '')} onClick={() => this.setState({ salTab: 'morning' })}>أذكار الصباح</button>
+          <button className={'segb' + (tab === 'evening' ? ' on' : '')} onClick={() => this.setState({ salTab: 'evening' })}>أذكار المساء</button>
+        </div>
+
+        {tab === 'times' && (
+          <>
+            <div className="card prayhero">
+              <div className="hi">الصلاة القادمة</div>
+              <div className="prayname">{np.name}</div>
+              <div className="praytime">{fmtMin(npAt)}</div>
+              <div className="praycd">بعد {remain}</div>
+            </div>
+            <div className="card" style={{ padding: '6px 6px' }}>
+              {rows.map(r => (
+                <div key={r.k} className={'prayrow' + (r.isNext ? ' next' : '') + (r.passed && !r.isNext ? ' past' : '')}>
+                  <span className="pn">{r.sun ? '🌅 ' : ''}{r.name}</span>
+                  <span className="pt">{fmtMin(r.min)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="card">
+              <div className="srow"><div className="sl"><div className="si2">🔔</div>تذكير أوقات الصلاة</div><button className={'sw' + (s.prayer ? ' on' : '')} onClick={() => this.togglePrayer()}></button></div>
+              <div className="srow"><div className="sl"><div className="si2">📿</div>تذكير أذكار الصباح والمساء</div><button className={'sw' + (s.athkar ? ' on' : '')} onClick={() => this.toggleAthkar()}></button></div>
+              <p className="selsum" style={{ margin: '8px 2px 0' }}>تصل التذكيرات لكِ ولعبدالرحمن حتى لو كان التطبيق مغلقًا 🤍</p>
+            </div>
+            <button className="bigtog" onClick={() => this.setState({ salAdj: !this.state.salAdj })}>⏱️ تعديل المواقيت (±دقائق)<span className="yn">{this.state.salAdj ? '▴' : '▾'}</span></button>
+            {this.state.salAdj && (
+              <div className="card" style={{ marginTop: 12 }}>
+                <p className="selsum" style={{ marginTop: 0 }}>عدّلي أي وقت ليطابق مصدركِ الرسمي المفضّل.</p>
+                {PRAYER_ORDER.filter(k => k !== 'sunrise').map(k => (
+                  <div key={k} className="srow"><div className="sl">{PRAYER_NAMES[k]}</div>
+                    <div className="stp"><button onClick={() => this.adjustPrayer(k, -1)}>−</button><span className="sv2">{(adj[k] || 0) > 0 ? '+' : ''}{adj[k] || 0}</span><button onClick={() => this.adjustPrayer(k, 1)}>+</button></div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {tab !== 'times' && (
+          <>
+            <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px' }}>
+              <span style={{ fontWeight: 700 }}>{prog} / {list.length} ✓</span>
+              <button className="opt" style={{ flex: '0 0 auto', padding: '8px 14px' }} onClick={() => this.resetAth(pkey)}>إعادة الضبط</button>
+            </div>
+            {list.map((dh, i) => {
+              const done = (ath[pkey][i] || 0)
+              const finished = done >= dh.c
+              return (
+                <button key={i} className={'card dhikr' + (finished ? ' done' : '')} onClick={() => this.tapDhikr(pkey, i, dh.c)}>
+                  <div className="dhtext">{dh.t}</div>
+                  {dh.n && <div className="dhnote">{dh.n}</div>}
+                  <div className="dhfoot"><span className="dhcount">{finished ? '✓ تمّ' : done + ' / ' + dh.c}</span><span className="dhhint">اضغط للعدّ</span></div>
+                </button>
+              )
+            })}
+          </>
+        )}
       </div>
     )
   }
