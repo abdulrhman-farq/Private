@@ -4,6 +4,7 @@ import { prayerMinutes, nextPrayer, fmtMin, PRAYER_NAMES, PRAYER_ORDER, riyadhNo
 import { MORNING, EVENING } from './athkar.js'
 import { LETTER_MD, LETTER_TITLE } from './letter.js'
 import { HM_HERO, HM_TIMELINE, HM_MEMORIES, HM_QUOTES, HM_PLACES, HM_ACTIVITIES, HM_INSIGHTS, HM_FUTURE, HM_FILTERS } from './honeymoon.js'
+import { BOOK_COVER, BOOK_PAGES } from './honeymoonbook.js'
 
 // إصدار مخطّط البيانات الحالي. عند رفعه نُضيف دالة ترقية بدل مسح البيانات.
 const DATA_VERSION = 6
@@ -99,7 +100,7 @@ export default class App extends React.Component {
       sheet: false,
       dayOpen: false,
       salTab: 'times', salAdj: false, dhText: '', dhCount: '',
-      hmOpen: false, hmFilter: 'all',
+      hmOpen: false, hmFilter: 'all', bookPage: 0, bookToc: false,
       locked: false, pinInput: '',
       obStep: 0,
       resetModal: false, resetText: '', importPreview: null,
@@ -1193,6 +1194,7 @@ export default class App extends React.Component {
             {this.state.screen === 'salah' && this.renderSalah(g)}
             {this.state.screen === 'letter' && this.renderLetter(g)}
             {this.state.screen === 'honeymoon' && this.renderHoneymoon(g)}
+            {this.state.screen === 'book' && this.renderBook(g)}
           </div>
           {g.showNav && (
             <div className="nav">
@@ -1967,6 +1969,64 @@ export default class App extends React.Component {
       </div>
     )
   }
+  renderBook(g) {
+    // الصفحة 0 = الغلاف، ثم صفحات الكتاب. آخر صفحة = الغلاف الخلفي.
+    const total = BOOK_PAGES.length + 1
+    const pi = Math.max(0, Math.min(total - 1, this.state.bookPage))
+    const goPage = n => { this.hap(); this.setState({ bookPage: Math.max(0, Math.min(total - 1, n)), bookToc: false }) }
+    const chapters = BOOK_PAGES.map((p, i) => ({ p, i: i + 1 })).filter(x => x.p.kind === 'chapter' || x.p.kind === 'letter')
+    return (
+      <div className="screen">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">كتاب الذكرى 📖</div><h1 className="nm">Our Honeymoon</h1></div><button className="tbtn" onClick={() => this.go('honeymoon')}>‹</button></div>
+
+        <div className="bookwrap" dir="ltr">
+          {pi === 0 ? (
+            <div className="bookpage cover">
+              <div className="bcdeco">✦</div>
+              <div className="bctitle">{BOOK_COVER.title}</div>
+              <div className="bcrule"></div>
+              <div className="bcauthors">{BOOK_COVER.authors}</div>
+              <div className="bcmeta">{BOOK_COVER.place}</div>
+              <div className="bcmeta">{BOOK_COVER.date}</div>
+              <div className="bcepi">{BOOK_COVER.epigraph.map((l, i) => <div key={i}>“{l}”</div>)}</div>
+            </div>
+          ) : (() => {
+            const p = BOOK_PAGES[pi - 1]
+            return (
+              <div className={'bookpage ' + p.kind}>
+                {p.kind === 'chapter' && <div className="bchn">Chapter {p.n}</div>}
+                {p.title && <div className="bptitle">{p.title}</div>}
+                {(p.kind === 'chapter' || p.title) && <div className="bprule"></div>}
+                <div className="bpbody">
+                  {p.lines.map((l, i) => l === '' ? <div key={i} className="bpgap"></div> : <p key={i} className={p.kind === 'back' || p.kind === 'dedication' || p.kind === 'letter' ? 'bpverse' : 'bppar'}>{l}</p>)}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+
+        <div className="booknav" dir="ltr">
+          <button className="bnbtn" disabled={pi === 0} onClick={() => goPage(pi - 1)}>‹</button>
+          <button className="bntoc" onClick={() => { this.hap(); this.setState({ bookToc: !this.state.bookToc }) }}>{pi === 0 ? 'Cover' : pi === total - 1 ? 'Back cover' : 'Page ' + pi + ' / ' + (total - 2)} ▾</button>
+          <button className="bnbtn" disabled={pi === total - 1} onClick={() => goPage(pi + 1)}>›</button>
+        </div>
+
+        {this.state.bookToc && (
+          <div className="card booktoc" dir="ltr">
+            <div className="ttl" style={{ direction: 'rtl' }}>Contents</div>
+            <button className="tocrow" onClick={() => goPage(0)}>Cover</button>
+            {chapters.map(c => (
+              <button key={c.i} className="tocrow" onClick={() => goPage(c.i)}>
+                {c.p.kind === 'chapter' ? <span className="tocn">{c.p.n}</span> : <span className="tocn">✦</span>}
+                <span>{c.p.title}</span>
+              </button>
+            ))}
+            <button className="tocrow" onClick={() => goPage(total - 1)}>Back cover</button>
+          </div>
+        )}
+      </div>
+    )
+  }
   renderHoneymoon(g) {
     const f = this.state.hmFilter
     const match = it => f === 'all' || it.cat === f || it.category === f
@@ -1984,6 +2044,7 @@ export default class App extends React.Component {
             <div className="hmsub">{HM_HERO.subtitle}</div>
             <p className="hmintro">{HM_HERO.intro}</p>
             <button className="qbtn" onClick={() => { this.hap(); this.setState({ hmOpen: true }) }}>{HM_HERO.cta} 💌</button>
+            <button className="qbtn" style={{ marginTop: 11, background: 'rgba(255,255,255,.16)', boxShadow: 'none' }} onClick={() => this.go('book')}>📖 افتح الكتاب — Our Honeymoon</button>
           </div>
         </div>
       )
@@ -1991,6 +2052,8 @@ export default class App extends React.Component {
     return (
       <div className="screen">
         <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">ذكرياتنا الأولى بعد الزواج</div><h1 className="nm">شهر العسل 🏝️</h1></div><button className="tbtn" onClick={() => this.go('us')}>‹</button></div>
+
+        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('book')}>📖 اقرأ الكتاب — Our Honeymoon<span className="yn">›</span></button>
 
         <div className="hmfilters">
           {HM_FILTERS.map(ff => <button key={ff.k} className={'hmchip' + (f === ff.k ? ' on' : '')} onClick={() => { this.hap(); this.setState({ hmFilter: ff.k }) }}>{ff.label}</button>)}

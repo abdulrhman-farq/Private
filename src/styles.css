@@ -402,3 +402,32 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .hminl{font-size:12.5px;font-weight:800;color:var(--rose-d);margin-bottom:7px}
 .hminc{display:inline-block;font-size:12.5px;background:var(--rose-s);color:var(--rose-d);padding:5px 11px;border-radius:var(--r-pill);margin:0 0 6px 6px}
 .hminc.he{background:var(--fertile-s);color:var(--fertile)}
+
+/* كتاب الذكرى — Our Honeymoon */
+.bookwrap{margin:4px 0 14px}
+.bookpage{background:linear-gradient(180deg,#fbf6ee,#f3e9da);color:#3a2f28;border-radius:18px;box-shadow:var(--shadow);padding:30px 24px;min-height:430px;font-family:Georgia,'Times New Roman',serif;display:flex;flex-direction:column}
+.app.dark .bookpage{background:linear-gradient(180deg,#241b22,#1c151c);color:#e7d8d0}
+.bookpage.cover{align-items:center;justify-content:center;text-align:center;background:linear-gradient(160deg,#2a1c24,#14101a);color:#f3e7d8;min-height:480px;border:1px solid rgba(224,105,138,.3)}
+.bookpage.cover .bcdeco{font-size:22px;color:#caa46a;margin-bottom:14px}
+.bookpage.cover .bctitle{font-size:30px;letter-spacing:5px;font-weight:700}
+.bookpage.cover .bcrule{width:60px;height:2px;background:#caa46a;margin:16px 0}
+.bookpage.cover .bcauthors{font-size:18px;font-style:italic;color:#e9c9a0}
+.bookpage.cover .bcmeta{font-size:13px;letter-spacing:2px;color:#c9b7a8;margin-top:4px}
+.bookpage.cover .bcepi{margin-top:30px;font-style:italic;font-size:13.5px;line-height:1.9;color:#d8c2b0}
+.bchn{text-align:center;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#b07a52}
+.app.dark .bchn{color:#caa46a}
+.bptitle{text-align:center;font-size:23px;font-weight:700;margin-top:6px}
+.bprule{width:46px;height:1.5px;background:#caa46a;margin:14px auto 18px}
+.bpbody{flex:1}
+.bppar{font-size:15px;line-height:1.95;margin:0 0 14px;text-align:justify}
+.bpverse{font-size:15.5px;line-height:1.7;margin:0 0 9px;text-align:center;font-style:italic}
+.bpgap{height:12px}
+.bookpage.back{align-items:center;justify-content:center;text-align:center}
+.bookpage.back .bpverse{font-size:16px}
+.booknav{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.bnbtn{width:50px;height:46px;border-radius:14px;border:none;cursor:pointer;background:var(--card);box-shadow:var(--shadow-s);font-size:22px;color:var(--rose-d);font-family:inherit}
+.bnbtn:disabled{opacity:.35}
+.bntoc{flex:1;height:46px;border-radius:14px;border:none;cursor:pointer;background:var(--card);box-shadow:var(--shadow-s);font-size:13px;font-weight:700;color:var(--ink);font-family:inherit}
+.booktoc .tocrow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;border-bottom:1px solid var(--line);background:none;cursor:pointer;font-family:inherit;font-size:14px;color:var(--ink);padding:11px 4px}
+.booktoc .tocrow:last-child{border-bottom:none}
+.booktoc .tocn{display:inline-flex;align-items:center;justify-content:center;min-width:30px;font-size:11px;font-weight:800;color:var(--rose-d)}
