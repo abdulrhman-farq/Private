@@ -5,6 +5,7 @@ export const BOOK_COVER = {
   place: 'Bali, Indonesia',
   date: 'June 2026',
   epigraph: ['Every great family begins with a story.', 'This is ours.'],
+  byline: 'Narrated by Abdulrahman',
   photo: './honeymoon/kiss.jpg',
 }
 
@@ -15,6 +16,7 @@ export const BOOK_COVER_AR = {
   place: 'بالي، إندونيسيا',
   date: 'يونيو ٢٠٢٦',
   epigraph: ['كل عائلة جميلة تبدأ بقصّة.', 'وهذه قصّتنا.'],
+  byline: 'بقلم عبدالرحمن',
   photo: './honeymoon/kiss.jpg',
 }
 
@@ -33,8 +35,8 @@ export const BOOK_PAGES_AR = [
   { kind: 'chapter', label: 'الفصل ١', n: 'الأول', title: 'قبل أن نسافر', lines: [
     'ما بدأ شهر العسل في بالي، بدأ في بيتنا — الليلة اللي قبل السفر.',
     'شنط مفتوحة، وملابس بكل مكان، وقوائم، وتأكيد جوازات، ووزن شنط، وسحّاب بعد سحّاب.',
-    'رويدة خافت إنها نسيت شي، وعبدالرحمن ابتسم وقال: «كل شي تمام».',
-    'تعشّينا مع العائلة، وعمّه محمد سوّى برغر خرافي، والأطفال صاروا «وَيترز» يدورون بالمنيو ياخذون الطلبات — كأن البيت تحوّل لمطعم مبني كلّه من الحب.',
+    'خافت رويدة إنها نسيت شي، فابتسمت وقلت لها: «كل شي تمام».',
+    'تعشّينا مع العائلة، ومحمد سوّى برغر خرافي، والأطفال صاروا «وَيترز» يدورون بالمنيو ياخذون الطلبات — كأن البيت تحوّل لمطعم مبني كلّه من الحب.',
     'قبل ما ننام، سكّرنا الشنط، فتحناها، سكّرناها مرة ثانية، وضحكنا.',
     'بكرة… تبدأ حياتنا سوا فعلًا.',
   ] },
@@ -144,8 +146,8 @@ export const BOOK_PAGES = [
     lines: [
       'The honeymoon didn’t begin in Bali. It began in our home — the night before the flight.',
       'Suitcases open. Clothes everywhere. Lists. Passport checks. Weight checks. One more zipper, then another.',
-      'Ruwaida worried she had forgotten something. Abdulrahman smiled. “Everything is fine.”',
-      'That evening we shared dinner with family. Uncle Mohammed prepared incredible burgers. The children became waiters, walking around with menus, taking everyone’s orders — the whole evening felt like a restaurant built entirely from love.',
+      'Ruwaida worried she had forgotten something. I smiled. “Everything is fine.”',
+      'That evening we shared dinner with family. Mohammed prepared incredible burgers. The children became waiters, walking around with menus, taking everyone’s orders — the whole evening felt like a restaurant built entirely from love.',
       'Before sleeping, we closed the suitcases. Opened them again. Closed them again. Then laughed.',
       'Tomorrow… our life together would truly begin.',
     ],

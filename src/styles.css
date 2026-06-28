@@ -454,3 +454,4 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .bctitle.ar{font-family:'Reem Kufi';letter-spacing:0;font-size:34px}
 .booktoc .tocrow{text-align:start}
 .booktoc .tocn{min-width:auto;margin-inline-end:4px}
+.bookpage.cover .bcbyline{font-size:12.5px;color:#caa46a;margin-top:6px;letter-spacing:1px}

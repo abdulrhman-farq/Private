@@ -2001,6 +2001,7 @@ export default class App extends React.Component {
               <div className={'bctitle' + (ar ? ' ar' : '')}>{COVER.title}</div>
               <div className="bcrule"></div>
               <div className="bcauthors">{COVER.authors}</div>
+              {COVER.byline && <div className="bcbyline">{COVER.byline}</div>}
               <div className="bcmeta">{COVER.place}</div>
               <div className="bcmeta">{COVER.date}</div>
               <div className="bcepi">{COVER.epigraph.map((l, i) => <div key={i}>«{l}»</div>)}</div>
