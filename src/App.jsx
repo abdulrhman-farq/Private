@@ -1756,42 +1756,135 @@ export default class App extends React.Component {
     const c = this.calc(), h = this.data.history || [], s = this.data.settings
     const avg = h.length ? Math.round(h.reduce((a, b) => a + b, 0) / h.length) : c.L
     const today = new Date()
-    let inti = 0, ovPos = 0, pregLogs = [], bbts = []
-    for (let i = 0; i < 60; i++) {
-      const iso = this.iso(this.addDays(today, -i)), lg = this.data.logs[iso]
-      if (!lg) continue
-      if (lg.intimacy) inti++
-      if (lg.ovTest === 'إيجابي') ovPos++
-      if (lg.pregTest) pregLogs.push(this.arShort(this.parse(iso)) + ': ' + lg.pregTest)
-      if (lg.bbt) bbts.push(this.arShort(this.parse(iso)) + ': ' + lg.bbt + '°')
-    }
+    const sd = h.length >= 2 ? this.stdev(h) : 0
+    const reg = h.length < 3 ? 'بيانات غير كافية' : sd <= 2 ? 'منتظمة' : sd <= 4 ? 'شبه منتظمة (تفاوت بسيط)' : 'متفاوتة'
+    const minC = h.length ? Math.min(...h) : s.cycleLength, maxC = h.length ? Math.max(...h) : s.cycleLength
     const ovE = this.ovulationEstimate()
+    const ovuD = ovE.source !== 'calc' ? ovE.date : c.ovu
+    const fS = this.addDays(ovuD, -5), fE = this.addDays(ovuD, 1)
+    const luteal = this.diff(c.next, ovuD)
+    // مسح 90 يومًا للأنماط
+    let inti = 0, intiFertile = 0, ovPos = [], pregLogs = [], bbts = [], meds = 0, sym = {}, weights = [], firstLog = null
+    for (const k in this.data.logs) { if (!firstLog || k < firstLog) firstLog = k }
+    for (let i = 0; i < 90; i++) {
+      const d = this.addDays(today, -i), iso = this.iso(d), lg = this.data.logs[iso]
+      if (!lg) continue
+      if (lg.intimacy) { inti++; const ph = this.phaseOf(d); if (ph === 'fertile' || ph === 'ovu') intiFertile++ }
+      if (lg.ovTest === 'إيجابي') ovPos.push(this.arShort(d))
+      if (lg.pregTest) pregLogs.push(this.arShort(d) + ': ' + lg.pregTest)
+      if (lg.bbt) bbts.push(this.arShort(d) + ': ' + lg.bbt + '°')
+      if (lg.meds) meds++
+      if (lg.weight) weights.push({ d, v: parseFloat(lg.weight) })
+      if (lg.symptoms) for (const sy of lg.symptoms) sym[sy] = (sym[sy] || 0) + 1
+    }
+    const topSym = Object.entries(sym).sort((a, b) => b[1] - a[1]).slice(0, 6)
+    weights.sort((a, b) => a.d - b.d)
+    const wFirst = weights[0], wLast = weights[weights.length - 1]
+    const cyclesRecorded = h.length + 1
+    const appts = this.apptsView()
+    const preg = this.pregActive() ? this.pregView() : null
+    const gen = this.arLong(today)
+    const srcTxt = ovE.source === 'lh' ? 'اختبار تبويض (LH) إيجابي' : ovE.source === 'bbt' ? 'ارتفاع حرارة الجسم القاعدية' : 'حساب تقويمي تقديري'
     return (
       <div className="screen stagger report">
         <div className="hd no-print" style={{ alignItems: 'center' }}>
-          <div><div className="hi">للطبيب المختص</div><h1 className="nm">تقرير الدورة</h1></div>
+          <div><div className="hi">لطبيب النساء والولادة والخصوبة</div><h1 className="nm">تقرير طبي</h1></div>
           <button className="tbtn" aria-label="رجوع" onClick={() => this.go('tools')}><Icon name="chevron-right" /></button>
         </div>
-        <div className="card">
-          <div className="ttl">ملخّص لـ {s.wife}</div>
-          <div className="info">
-            <div className="irow"><div className="ib bp">📅</div><div><div className="it">تاريخ آخر دورة</div><div className="iv">{this.arShort(c.last)}</div></div></div>
-            <div className="irow"><div className="ib bf">🔄</div><div><div className="it">طول الدورة / متوسطها</div><div className="iv">{s.cycleLength} يوم • متوسط {avg}</div></div></div>
-            <div className="irow"><div className="ib bo">🩸</div><div><div className="it">أيام الدورة</div><div className="iv">{s.periodLength} أيام</div></div></div>
-            <div className="irow"><div className="ib bo">🌸</div><div><div className="it">التبويض المُقدّر</div><div className="iv">{this.arShort(ovE.date)} ({ovE.source === 'lh' ? 'اختبار LH' : ovE.source === 'bbt' ? 'الحرارة' : 'تقويم'})</div></div></div>
-            <div className="irow"><div className="ib bf">📊</div><div><div className="it">أطوال الدورات السابقة</div><div className="iv">{h.length ? h.join('، ') + ' يوم' : '—'}</div></div></div>
+
+        <div className="card rephead">
+          <div className="reptitle">تقرير متابعة الخصوبة والدورة الشهرية</div>
+          <div className="repsub">قسم النساء والولادة — طب الخصوبة والإنجاب</div>
+          <div className="repmeta">
+            <span><b>المريضة:</b> {s.wife}</span>
+            <span><b>الزوج:</b> {s.husband}</span>
+            <span><b>تاريخ التقرير:</b> {gen}</span>
           </div>
         </div>
+
         <div className="card">
-          <div className="ttl">آخر ٦٠ يومًا</div>
-          <div className="info">
-            <div className="irow"><div className="ib bp">💞</div><div><div className="it">مرات الجماع المسجّلة</div><div className="iv">{inti}</div></div></div>
-            <div className="irow"><div className="ib bo">🧪</div><div><div className="it">اختبارات تبويض إيجابية</div><div className="iv">{ovPos}</div></div></div>
-            <div className="irow"><div className="ib bf">🤍</div><div><div className="it">اختبارات الحمل</div><div className="iv">{pregLogs.length ? pregLogs.join(' • ') : '—'}</div></div></div>
-            <div className="irow"><div className="ib bo">🌡</div><div><div className="it">قياسات الحرارة</div><div className="iv" style={{ fontSize: 12 }}>{bbts.length ? bbts.slice(0, 8).join(' • ') : '—'}</div></div></div>
-          </div>
+          <div className="ttl">١) ملخّص الدورة الشهرية</div>
+          <table className="reptable">
+            <tbody>
+              <tr><td>تاريخ آخر دورة (LMP)</td><td>{this.arShort(c.last)}</td></tr>
+              <tr><td>طول الدورة الحالي</td><td>{s.cycleLength} يوم</td></tr>
+              <tr><td>متوسط طول الدورة</td><td>{avg} يوم</td></tr>
+              <tr><td>مدى الدورات (أقصر–أطول)</td><td>{h.length ? minC + ' – ' + maxC + ' يوم' : '—'}</td></tr>
+              <tr><td>انتظام الدورة</td><td>{reg}{h.length >= 3 ? ' (انحراف ±' + sd.toFixed(1) + ')' : ''}</td></tr>
+              <tr><td>مدة الطمث</td><td>{s.periodLength} أيام</td></tr>
+              <tr><td>عدد الدورات المسجّلة</td><td>{cyclesRecorded}</td></tr>
+              {firstLog && <tr><td>بداية التتبّع</td><td>{this.arShort(this.parse(firstLog))}</td></tr>}
+            </tbody>
+          </table>
         </div>
-        <div className="note no-print">💡 <div>اضغطي «طباعة / حفظ PDF» لحفظ التقرير ومشاركته مع الطبيب في الزيارة.</div></div>
+
+        <div className="card">
+          <div className="ttl">٢) التبويض ونافذة الخصوبة</div>
+          <table className="reptable">
+            <tbody>
+              <tr><td>يوم التبويض المُقدّر</td><td>{this.arShort(ovuD)}</td></tr>
+              <tr><td>طريقة التقدير</td><td>{srcTxt}</td></tr>
+              <tr><td>نافذة الخصوبة المتوقّعة</td><td>{this.arShort(fS)} – {this.arShort(fE)}</td></tr>
+              <tr><td>طول الطور الأصفري التقديري</td><td>{luteal} يوم</td></tr>
+              <tr><td>موعد الدورة القادمة المتوقّع</td><td>{this.arShort(c.next)}</td></tr>
+              <tr><td>أطوال الدورات السابقة</td><td>{h.length ? h.join('، ') + ' يوم' : '—'}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="card">
+          <div className="ttl">٣) محاولات الحمل والتوقيت (آخر ٩٠ يومًا)</div>
+          <table className="reptable">
+            <tbody>
+              <tr><td>مرات الجماع المسجّلة</td><td>{inti}</td></tr>
+              <tr><td>منها ضمن نافذة الخصوبة</td><td>{intiFertile}{inti ? ' (' + Math.round(intiFertile / inti * 100) + '%)' : ''}</td></tr>
+              <tr><td>اختبارات تبويض إيجابية (LH)</td><td>{ovPos.length ? ovPos.join('، ') : '—'}</td></tr>
+              <tr><td>اختبارات الحمل المنزلية</td><td>{pregLogs.length ? pregLogs.join(' • ') : '—'}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="card">
+          <div className="ttl">٤) مؤشرات إضافية</div>
+          <table className="reptable">
+            <tbody>
+              <tr><td>حرارة الجسم القاعدية (BBT)</td><td style={{ fontSize: 12 }}>{bbts.length ? bbts.slice(0, 10).join(' • ') : '—'}</td></tr>
+              <tr><td>أبرز الأعراض المتكرّرة</td><td>{topSym.length ? topSym.map(x => x[0] + ' (' + x[1] + ')').join('، ') : '—'}</td></tr>
+              <tr><td>الأدوية / المكمّلات</td><td>{meds ? meds + ' يوم مسجّل' : '—'}{s.vitamins && s.vitamins.on ? ' · تذكير الفوليك/الفيتامينات مُفعّل' : ''}</td></tr>
+              <tr><td>الوزن</td><td>{weights.length ? (wFirst.v + ' → ' + wLast.v + ' كجم') + (weights.length > 1 ? ' (' + (wLast.v - wFirst.v >= 0 ? '+' : '') + (wLast.v - wFirst.v).toFixed(1) + ')' : '') : '—'}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        {preg && (
+          <div className="card">
+            <div className="ttl">٥) حالة الحمل الحالية</div>
+            <table className="reptable">
+              <tbody>
+                <tr><td>عمر الحمل</td><td>{preg.wk} أسبوع + {preg.dd} يوم ({preg.tri})</td></tr>
+                <tr><td>بداية آخر دورة (LMP)</td><td>{preg.lmpLabel}</td></tr>
+                <tr><td>موعد الولادة المتوقّع (EDD)</td><td>{preg.eddLabel}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {appts.length > 0 && (
+          <div className="card">
+            <div className="ttl">٦) المواعيد الطبية</div>
+            <table className="reptable">
+              <tbody>
+                {appts.slice(0, 8).map(a => <tr key={a.id}><td>{a.type}{a.note ? ' — ' + a.note : ''}</td><td>{a.dateLabel} ({a.when})</td></tr>)}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="repnote">
+          هذا التقرير مُولّد من تتبّع منزلي ذاتي، والتقديرات (التبويض، نافذة الخصوبة) تقريبية تعتمد على البيانات المُدخلة؛ يُرجى الاعتماد على التقييم السريري والفحوصات المخبرية.
+        </div>
+
+        <div className="note no-print">💡 <div>اضغط «طباعة / حفظ PDF» لحفظ التقرير ومشاركته مع الطبيب في الزيارة.</div></div>
         <button className="qbtn no-print" onClick={() => this.printReport()}>🖨️ طباعة / حفظ PDF</button>
       </div>
     )

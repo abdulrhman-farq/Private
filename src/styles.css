@@ -455,3 +455,21 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .booktoc .tocrow{text-align:start}
 .booktoc .tocn{min-width:auto;margin-inline-end:4px}
 .bookpage.cover .bcbyline{font-size:12.5px;color:#caa46a;margin-top:6px;letter-spacing:1px}
+
+/* تقرير الطبيب */
+.rephead{text-align:center;border:1px solid var(--line)}
+.rephead .reptitle{font-family:'Reem Kufi';font-size:19px;font-weight:700;color:var(--rose-d)}
+.rephead .repsub{font-size:12.5px;color:var(--ink2);margin-top:4px}
+.rephead .repmeta{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;margin-top:12px;padding-top:11px;border-top:1px solid var(--line);font-size:12.5px}
+.rephead .repmeta b{color:var(--ink2);font-weight:600}
+.reptable{width:100%;border-collapse:collapse;font-size:13px}
+.reptable td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.6}
+.reptable tr:last-child td{border-bottom:none}
+.reptable td:first-child{color:var(--ink2);width:44%;font-weight:600}
+.reptable td:last-child{font-weight:700}
+.repnote{font-size:11.5px;color:var(--ink2);line-height:1.8;background:var(--bg);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+@media print{
+  .report .card{page-break-inside:avoid}
+  .reptable td:last-child{font-weight:600}
+  .repnote{border:1px solid #eee}
+}
