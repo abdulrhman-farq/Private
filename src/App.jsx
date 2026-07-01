@@ -804,6 +804,25 @@ export default class App extends React.Component {
     }
     return { date: c.ovu, source: 'calc' }
   }
+  // جدول اختبار التبويض (LH): من ٥ أيام قبل التبويض حتى يوم بعده.
+  // الأيام البعيدة: مرة/يوم (١٢ظ–٨م) · الأيام القريبة (تبويض-٢ حتى التبويض): مرتين (١ظ و٧م).
+  lhSchedule() {
+    if (this.pregActive()) return []
+    const ovE = this.ovulationEstimate(), ovuD = ovE.source !== 'calc' ? ovE.date : this.calc().ovu
+    const out = []
+    for (let off = -5; off <= 1; off++) {
+      const d = this.addDays(ovuD, off), iso = this.iso(d), lg = this.data.logs[iso]
+      const twice = off >= -2 && off <= 0
+      out.push({
+        iso, date: d, label: this.arShort(d), off, twice, isOvu: off === 0,
+        done: !!(lg && lg.ovTest), result: lg ? lg.ovTest : '',
+        times: twice ? '١:٠٠ ظهرًا و ٧:٠٠ مساءً' : 'مرة بين ١٢ ظهرًا و ٨ مساءً',
+      })
+    }
+    return out
+  }
+  // بند اليوم من جدول الشرائط (أو null إن لم يكن اليوم ضمن نافذة الاختبار).
+  lhToday() { const t = this.iso(new Date()); return this.lhSchedule().find(x => x.iso === t) || null }
   // (٣) احتمال الحمل ليوم معيّن (٪) بناءً على قربه من التبويض المقدّر — منحنى خصوبة تقريبي معروف.
   conceptionPct(date) {
     const ov = this.ovulationEstimate().date, d = this.diff(ov, date)
@@ -1209,6 +1228,7 @@ export default class App extends React.Component {
             {this.state.screen === 'letter' && this.renderLetter(g)}
             {this.state.screen === 'honeymoon' && this.renderHoneymoon(g)}
             {this.state.screen === 'book' && this.renderBook(g)}
+            {this.state.screen === 'lhplan' && this.renderLhPlan(g)}
           </div>
           {g.showNav && (
             <div className="nav">
@@ -1253,6 +1273,7 @@ export default class App extends React.Component {
     let pin = npMin - riyadhNowMin(); if (pin < 0) pin += 1440
     const pcd = pin >= 60 ? Math.floor(pin / 60) + ' س ' + (pin % 60) + ' د' : pin + ' د'
     const upcoming = this.upcomingItems()
+    const lhT = this.lhToday()
     // هيرو الذكرى: يظهر يوم الذكرى الشهرية وقبلها بيوم
     const wedm = (this.data.occasions || []).find(o => o.id === 'wedm' && !o.deletedAt)
     let anniv = null
@@ -1305,6 +1326,18 @@ export default class App extends React.Component {
           <button className="qbtn" style={{ marginTop: 14 }} onClick={g.goLog}>＋ تسجيل اليوم</button>
           <button className="linkbtn" onClick={() => this.go('cycle')}>تفاصيل الدورة ‹</button>
         </div>
+
+        {/* جدول اختبار التبويض (LH) — يظهر أيام الاختبار */}
+        {lhT && (
+          <div className="card lhcard">
+            <div className="ttl">🧪 وقت اختبار التبويض اليوم</div>
+            {lhT.done
+              ? <p className="selsum" style={{ margin: '0 0 8px' }}>✅ سجّلتِ نتيجة اليوم: <b style={{ color: 'var(--rose-d)' }}>{lhT.result}</b>{lhT.twice ? ' — ينصح باختبار ثانٍ مساءً في أيام الذروة.' : ''}</p>
+              : <p className="selsum" style={{ margin: '0 0 8px' }}>{lhT.twice ? 'اختبري مرّتين اليوم (١ ظهرًا و٧ مساءً) حتى لا تفوتكِ ذروة الـLH.' : 'اختبري مرّة اليوم (بين ١٢ ظهرًا و٨ مساءً).'}{lhT.isOvu ? ' اليوم يوم الذروة المتوقّع 🎯' : ''}</p>}
+            <button className="qbtn" onClick={() => { this.setState({ logISO: this.iso(new Date()) }); this.go('log') }}>سجّلي نتيجة الشريط</button>
+            <button className="linkbtn" onClick={() => this.go('lhplan')}>الجدول الكامل ‹</button>
+          </div>
+        )}
 
         {/* الصلاة القادمة — سطر بسيط */}
         {this.data.settings.prayer !== false && (
@@ -2088,6 +2121,48 @@ export default class App extends React.Component {
           <div className="lhs">عبدالرحمن 🤍 رويدا</div>
         </div>
         <div className="card letter">{this.renderLetterBody(LETTER_MD)}</div>
+      </div>
+    )
+  }
+  renderLhPlan(g) {
+    const plan = this.lhSchedule(), todayISO = this.iso(new Date())
+    const remOn = !this.data.settings.reminders || this.data.settings.reminders.test !== false
+    return (
+      <div className="screen stagger">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">حتى لا تفوتكِ ذروة الـ LH</div><h1 className="nm">جدول اختبار التبويض 🧪</h1></div><button className="tbtn" onClick={() => this.go('home')}>‹</button></div>
+
+        <div className="card">
+          <div className="srow"><div className="sl"><div className="si2">🔔</div>تذكيري بأيام الاختبار</div><button className={'sw' + (remOn ? ' on' : '')} onClick={() => this.toggleRem('test')}></button></div>
+          <p className="selsum" style={{ margin: '8px 2px 0' }}>يصلكِ تنبيه في أيام الجدول (١ ظهرًا، وأيام الذروة تنبيه ثانٍ ٧ مساءً) حتى لو كان التطبيق مغلقًا 🤍</p>
+        </div>
+
+        <div className="card">
+          <div className="ttl">الخطة — من ٥ أيام قبل التبويض حتى بعده</div>
+          {plan.length === 0
+            ? <p className="selsum">وضع متابعة الحمل مفعّل حاليًا.</p>
+            : plan.map(x => (
+              <div key={x.iso} className={'lhrow' + (x.iso === todayISO ? ' today' : '') + (x.isOvu ? ' ovu' : '')}>
+                <div className="lhd">
+                  <div className="lhdate">{x.label}{x.iso === todayISO ? ' • اليوم' : ''}</div>
+                  <div className="lhtimes">{x.times}</div>
+                </div>
+                <div className="lhstat">
+                  {x.isOvu && <span className="lhpeak">ذروة متوقّعة</span>}
+                  {x.twice && !x.isOvu && <span className="lhtwice">مرّتين</span>}
+                  {x.done ? <span className="lhdone">✓ {x.result}</span> : <span className="lhpending">بانتظار</span>}
+                </div>
+              </div>
+            ))}
+        </div>
+
+        <div className="card">
+          <div className="ttl">كيف تقرئين النتيجة</div>
+          <div className="info">
+            <div className="irow"><div className="ib bp">🧪</div><div><div className="it">إيجابي</div><div className="iv" style={{ fontSize: 13 }}>خط T مساوٍ أو أغمق من خط C → التبويض غالبًا خلال ٢٤–٣٦ ساعة</div></div></div>
+            <div className="irow"><div className="ib bo">💞</div><div><div className="it">أفضل توقيت للجماع</div><div className="iv" style={{ fontSize: 13 }}>يوم النتيجة الإيجابية واليوم اللي بعده</div></div></div>
+            <div className="irow"><div className="ib bf">⏱️</div><div><div className="it">وقت الاختبار</div><div className="iv" style={{ fontSize: 13 }}>بين ١٢ ظهرًا و٨ مساءً، وقلّلي شرب الماء قبلها بساعتين</div></div></div>
+          </div>
+        </div>
       </div>
     )
   }

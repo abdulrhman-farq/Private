@@ -536,3 +536,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   .report .repnote{font-size:8.7px;line-height:1.55;margin-top:9px;padding:6px 9px}
   .report .repfoot{font-size:9px;margin-top:7px;padding-top:5px}
 }
+
+/* جدول اختبار التبويض (LH) */
+.lhcard{border:1.5px solid var(--rose-s)}
+.lhrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line)}
+.lhrow:last-child{border-bottom:none}
+.lhrow.today{background:var(--rose-s);border-radius:12px;padding:11px 12px;border-bottom:none;margin:3px 0}
+.lhrow.ovu .lhdate{color:var(--rose-d)}
+.lhd .lhdate{font-size:14px;font-weight:700}
+.lhd .lhtimes{font-size:11.5px;color:var(--ink2);margin-top:2px}
+.lhstat{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.lhpeak{font-size:10.5px;font-weight:800;background:var(--ovu-s);color:var(--ovu);padding:3px 9px;border-radius:var(--r-pill)}
+.lhtwice{font-size:10.5px;font-weight:700;background:var(--track);color:var(--ink2);padding:3px 9px;border-radius:var(--r-pill)}
+.lhdone{font-size:12px;font-weight:800;color:var(--fertile)}
+.lhpending{font-size:11.5px;color:var(--ink2)}
