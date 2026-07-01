@@ -100,7 +100,7 @@ export default class App extends React.Component {
       sheet: false,
       dayOpen: false,
       salTab: 'times', salAdj: false, dhText: '', dhCount: '',
-      hmOpen: false, hmFilter: 'all', bookPage: 0, bookToc: false, hmPhoto: null, bookLang: 'ar',
+      hmOpen: false, hmFilter: 'all', bookPage: 0, bookToc: false, hmPhoto: null, bookLang: 'ar', imgView: null,
       locked: false, pinInput: '',
       obStep: 0,
       resetModal: false, resetText: '', importPreview: null,
@@ -736,7 +736,23 @@ export default class App extends React.Component {
     this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt })
     this.showToast(ok ? '🗑️ تم الحذف من كل الأجهزة' : '⚠️ تعذّر الحذف من السحابة')
   }
-  emptyLog() { return { flow: '', symptoms: [], mood: '', intimacy: false, ovTest: '', pregTest: '', mucus: '', bbt: '', weight: '', meds: false, note: '' } }
+  emptyLog() { return { flow: '', symptoms: [], mood: '', intimacy: false, ovTest: '', pregTest: '', mucus: '', bbt: '', weight: '', meds: false, note: '', ovPhoto: '' } }
+  // إرفاق صورة شريط التبويض ليوم معيّن (مضغوطة base64، تُزامَن).
+  setStripPhoto(iso, file) {
+    if (!file) return
+    const r = new FileReader()
+    r.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        const cv = document.createElement('canvas'), max = 560; let w = img.width, h = img.height
+        if (w > h) { if (w > max) { h = h * max / w; w = max } } else { if (h > max) { w = w * max / h; h = max } }
+        cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h)
+        this.patchDay(iso, { ovPhoto: cv.toDataURL('image/jpeg', 0.62) }); this.showToast('✅ أُرفقت صورة الشريط')
+      }
+      img.src = r.result
+    }
+    r.readAsDataURL(file)
+  }
   curLog() { return this.data.logs[this.state.logISO] || this.emptyLog() }
   patchLog(p) { const iso = this.state.logISO, l = { ...this.curLog(), ...p, updatedAt: NOW() }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.commit({ logs }, []); this.setState({ saved: false }) }
   patchDay(iso, p) { const l = { ...(this.data.logs[iso] || this.emptyLog()), ...p, updatedAt: NOW() }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.commit({ logs }, []) }
@@ -815,7 +831,7 @@ export default class App extends React.Component {
       const twice = off >= -2 && off <= 0
       out.push({
         iso, date: d, label: this.arShort(d), off, twice, isOvu: off === 0,
-        done: !!(lg && lg.ovTest), result: lg ? lg.ovTest : '',
+        done: !!(lg && lg.ovTest), result: lg ? lg.ovTest : '', photo: lg ? (lg.ovPhoto || '') : '',
         times: twice ? '١:٠٠ ظهرًا و ٧:٠٠ مساءً' : 'مرة بين ١٢ ظهرًا و ٨ مساءً',
       })
     }
@@ -1048,7 +1064,7 @@ export default class App extends React.Component {
     const mucusList = ['جاف', 'لزج', 'كريمي', 'مائي', 'مثل بياض البيض']
     const mucus = mucusList.map((o, i) => ({ key: i, label: o, cls: 'opt' + (l.mucus === o ? (o === 'مثل بياض البيض' ? ' onp' : ' on') : ''), onClick: () => this.patchLog({ mucus: l.mucus === o ? '' : o }) }))
     return {
-      logDateLabel: isToday ? 'اليوم • ' + this.arShort(d) : this.arLong(d),
+      logDateLabel: isToday ? 'اليوم • ' + this.arShort(d) : this.arLong(d), logISO: iso, ovPhoto: l.ovPhoto || '',
       flowOpts: flows, symOpts: syms, moodOpts: moods, ovOpts: ovs, pregOpts: pregs, mucusOpts: mucus,
       intimacyTxt: l.intimacy ? 'نعم' : 'لا', intimacyCls: 'bigtog' + (l.intimacy ? ' on' : ''), toggleIntimacy: () => this.patchLog({ intimacy: !l.intimacy }),
       medsTxt: l.meds ? 'نعم' : 'لا', medsCls: 'bigtog' + (l.meds ? ' on' : ''), toggleMeds: () => this.patchLog({ meds: !l.meds }),
@@ -1172,6 +1188,12 @@ export default class App extends React.Component {
             </div>
           )}
           {this.state.toast && <div className="toast">{this.state.toast}</div>}
+          {this.state.imgView && (
+            <div className="lightbox" onClick={() => this.setState({ imgView: null })}>
+              <img src={this.state.imgView} alt="" onClick={e => e.stopPropagation()} />
+              <button className="lbclose" onClick={() => this.setState({ imgView: null })}>✕</button>
+            </div>
+          )}
           {this.state.notifMsg && (
             <div className="modal" onClick={() => this.setState({ notifMsg: null })}>
               <div className="modalcard" onClick={e => e.stopPropagation()}>
@@ -1584,6 +1606,12 @@ export default class App extends React.Component {
         <div className="card">
           <div className="lbl">🧪 اختبار التبويض</div>
           <div className="opts">{v.ovOpts.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
+          <div className="striprow">
+            {v.ovPhoto
+              ? <img className="stripthumb" src={v.ovPhoto} alt="شريط" onClick={() => this.setState({ imgView: v.ovPhoto })} />
+              : null}
+            <label className="linkbtn" style={{ cursor: 'pointer', margin: 0 }}>📷 {v.ovPhoto ? 'تغيير صورة الشريط' : 'أرفقي صورة الشريط'}<input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => this.setStripPhoto(v.logISO, e.target.files && e.target.files[0])} /></label>
+          </div>
         </div>
         <div className="card">
           <div className="lbl">💧 الإفرازات (مخاط عنق الرحم)</div>
@@ -2147,6 +2175,7 @@ export default class App extends React.Component {
                   <div className="lhtimes">{x.times}</div>
                 </div>
                 <div className="lhstat">
+                  {x.photo && <img className="lhthumb" src={x.photo} alt="" onClick={() => this.setState({ imgView: x.photo })} />}
                   {x.isOvu && <span className="lhpeak">ذروة متوقّعة</span>}
                   {x.twice && !x.isOvu && <span className="lhtwice">مرّتين</span>}
                   {x.done ? <span className="lhdone">✓ {x.result}</span> : <span className="lhpending">بانتظار</span>}
