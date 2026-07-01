@@ -651,7 +651,7 @@ export default class App extends React.Component {
       ovuDate: ovu, fertileStart: fS, fertileEnd: fE, nextDate: next,
       cycleDay: c.cycleDay, daysToOvu: dto, daysToPeriod: dtp,
       phase, conceptionPct: this.conceptionPct(today),
-      source: est.source, confidence: est.source === 'lh' ? 'مرتفعة' : est.source === 'bbt' ? 'متوسطة' : 'تقويمية',
+      source: est.source, confidence: est.source === 'lh' ? 'مرتفعة' : est.source === 'mucus' ? 'مرتفعة' : est.source === 'bbt' ? 'متوسطة' : 'تقويمية',
     }
   }
   // تلوين أيام التقويم — مثبَّت على يوم التبويض المُقدّر نفسه ليتطابق مع الرئيسية.
@@ -736,7 +736,7 @@ export default class App extends React.Component {
     this.setState({ syncing: false, syncError: !ok, syncedAt: ok ? Date.now() : this.state.syncedAt })
     this.showToast(ok ? '🗑️ تم الحذف من كل الأجهزة' : '⚠️ تعذّر الحذف من السحابة')
   }
-  emptyLog() { return { flow: '', symptoms: [], mood: '', intimacy: false, ovTest: '', pregTest: '', bbt: '', weight: '', meds: false, note: '' } }
+  emptyLog() { return { flow: '', symptoms: [], mood: '', intimacy: false, ovTest: '', pregTest: '', mucus: '', bbt: '', weight: '', meds: false, note: '' } }
   curLog() { return this.data.logs[this.state.logISO] || this.emptyLog() }
   patchLog(p) { const iso = this.state.logISO, l = { ...this.curLog(), ...p, updatedAt: NOW() }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.commit({ logs }, []); this.setState({ saved: false }) }
   patchDay(iso, p) { const l = { ...(this.data.logs[iso] || this.emptyLog()), ...p, updatedAt: NOW() }, logs = { ...this.data.logs, [iso]: l }; this.hap(); this.commit({ logs }, []) }
@@ -791,6 +791,10 @@ export default class App extends React.Component {
     let lhDay = null
     for (let i = 0; i < L; i++) { const dt = this.addDays(last, i), lg = this.data.logs[this.iso(dt)]; if (lg && lg.ovTest === 'إيجابي') lhDay = dt }
     if (lhDay) return { date: this.addDays(lhDay, 1), source: 'lh' }
+    // مؤشر كتابي بلا قياس: مخاط عنق الرحم كبياض البيض = ذروة الخصوبة (يوم التبويض تقريبًا).
+    let ewDay = null
+    for (let i = 0; i < L; i++) { const dt = this.addDays(last, i), lg = this.data.logs[this.iso(dt)]; if (lg && lg.mucus === 'مثل بياض البيض') ewDay = dt }
+    if (ewDay) return { date: ewDay, source: 'mucus' }
     const temps = []
     for (let i = 0; i < L; i++) { const lg = this.data.logs[this.iso(this.addDays(last, i))]; temps.push(lg && lg.bbt ? +lg.bbt : null) }
     for (let i = 6; i < L; i++) {
@@ -942,7 +946,7 @@ export default class App extends React.Component {
     const pct = Math.round((ins.cycleDay / ins.L) * 100), ang = pct * 3.6
     const ringStyle = 'conic-gradient(' + cvar[ph] + ' ' + pct + '%, var(--track) 0)'
     const smart = ins.source !== 'calc'
-    const srcTxt = ins.source === 'lh' ? 'حسب اختبار التبويض' : ins.source === 'bbt' ? 'حسب ارتفاع الحرارة' : 'حسب التقويم'
+    const srcTxt = ins.source === 'lh' ? 'حسب اختبار التبويض' : ins.source === 'mucus' ? 'حسب الإفرازات' : ins.source === 'bbt' ? 'حسب ارتفاع الحرارة' : 'حسب التقويم'
     const meName = this.identity ? this.identityView(this.identity).name : this.data.settings.wife
     return {
       greeting: 'أهلاً، ' + meName, todayLabel: this.arLong(today),
@@ -1021,9 +1025,12 @@ export default class App extends React.Component {
     const moods = ['😀 سعيدة', '😌 هادئة', '😐 عادية', '😣 متوترة', '😢 حزينة'].map((mo, i) => ({ key: i, label: mo, cls: 'mood' + (l.mood === mo ? ' on' : ''), onClick: () => this.patchLog({ mood: l.mood === mo ? '' : mo }) }))
     const ovs = ['سلبي', 'إيجابي', 'غير مؤكد'].map((o, i) => ({ key: i, label: o, cls: 'opt' + (l.ovTest === o ? (o === 'إيجابي' ? ' onp' : ' on') : ''), onClick: () => this.patchLog({ ovTest: l.ovTest === o ? '' : o }) }))
     const pregs = ['سلبي', 'إيجابي', 'غير مؤكد'].map((o, i) => ({ key: i, label: o, cls: 'opt' + (l.pregTest === o ? (o === 'إيجابي' ? ' onp' : ' on') : ''), onClick: () => this.patchLog({ pregTest: l.pregTest === o ? '' : o }) }))
+    // مخاط عنق الرحم — مؤشر خصوبة كتابي بلا قياس. «مثل بياض البيض» = ذروة الخصوبة.
+    const mucusList = ['جاف', 'لزج', 'كريمي', 'مائي', 'مثل بياض البيض']
+    const mucus = mucusList.map((o, i) => ({ key: i, label: o, cls: 'opt' + (l.mucus === o ? (o === 'مثل بياض البيض' ? ' onp' : ' on') : ''), onClick: () => this.patchLog({ mucus: l.mucus === o ? '' : o }) }))
     return {
       logDateLabel: isToday ? 'اليوم • ' + this.arShort(d) : this.arLong(d),
-      flowOpts: flows, symOpts: syms, moodOpts: moods, ovOpts: ovs, pregOpts: pregs,
+      flowOpts: flows, symOpts: syms, moodOpts: moods, ovOpts: ovs, pregOpts: pregs, mucusOpts: mucus,
       intimacyTxt: l.intimacy ? 'نعم' : 'لا', intimacyCls: 'bigtog' + (l.intimacy ? ' on' : ''), toggleIntimacy: () => this.patchLog({ intimacy: !l.intimacy }),
       medsTxt: l.meds ? 'نعم' : 'لا', medsCls: 'bigtog' + (l.meds ? ' on' : ''), toggleMeds: () => this.patchLog({ meds: !l.meds }),
       weightVal: l.weight || '', setWeight: e => this.patchLog({ weight: e.target.value }),
@@ -1546,11 +1553,16 @@ export default class App extends React.Component {
           <div className="opts">{v.ovOpts.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
         </div>
         <div className="card">
+          <div className="lbl">💧 الإفرازات (مخاط عنق الرحم)</div>
+          <div className="opts" style={{ flexWrap: 'wrap', gap: 8 }}>{v.mucusOpts.map(o => <button key={o.key} className={o.cls} style={{ flex: '1 0 28%' }} onClick={o.onClick}>{o.label}</button>)}</div>
+          <p className="selsum" style={{ margin: '9px 2px 0' }}>«مثل بياض البيض» = ذروة الخصوبة — أفضل أيام المحاولة 🎯</p>
+        </div>
+        <div className="card">
           <div className="lbl">🤍 اختبار الحمل</div>
           <div className="opts">{v.pregOpts.map(o => <button key={o.key} className={o.cls} onClick={o.onClick}>{o.label}</button>)}</div>
         </div>
         <div className="card">
-          <div className="lbl">🌡 درجة الحرارة الأساسية (BBT)</div>
+          <div className="lbl">🌡 درجة الحرارة الأساسية (BBT) — اختياري</div>
           <div className="fld">
             <span style={{ fontSize: 13, color: 'var(--ink2)' }}>بالدرجة المئوية °</span>
             <input className="num" type="number" step="0.1" placeholder="36.6" value={v.bbtVal} onChange={v.setBbt} />
@@ -1771,7 +1783,7 @@ export default class App extends React.Component {
     const fS = this.addDays(ovuD, -5), fE = this.addDays(ovuD, 1)
     const luteal = this.diff(c.next, ovuD)
     // مسح 90 يومًا للأنماط
-    let inti = 0, intiFertile = 0, ovPos = [], pregLogs = [], bbts = [], meds = 0, sym = {}, weights = [], firstLog = null
+    let inti = 0, intiFertile = 0, ovPos = [], pregLogs = [], bbts = [], meds = 0, sym = {}, weights = [], firstLog = null, mucusPeak = [], ovPain = []
     for (const k in this.data.logs) { if (!firstLog || k < firstLog) firstLog = k }
     for (let i = 0; i < 90; i++) {
       const d = this.addDays(today, -i), iso = this.iso(d), lg = this.data.logs[iso]
@@ -1779,10 +1791,11 @@ export default class App extends React.Component {
       if (lg.intimacy) { inti++; const ph = this.phaseOf(d); if (ph === 'fertile' || ph === 'ovu') intiFertile++ }
       if (lg.ovTest === 'إيجابي') ovPos.push(this.arShort(d))
       if (lg.pregTest) pregLogs.push(this.arShort(d) + ': ' + lg.pregTest)
+      if (lg.mucus === 'مثل بياض البيض') mucusPeak.push(this.arShort(d))
       if (lg.bbt) bbts.push(this.arShort(d) + ': ' + lg.bbt + '°')
       if (lg.meds) meds++
       if (lg.weight) weights.push({ d, v: parseFloat(lg.weight) })
-      if (lg.symptoms) for (const sy of lg.symptoms) sym[sy] = (sym[sy] || 0) + 1
+      if (lg.symptoms) { for (const sy of lg.symptoms) sym[sy] = (sym[sy] || 0) + 1; if (lg.symptoms.includes('ألم التبويض')) ovPain.push(this.arShort(d)) }
     }
     const topSym = Object.entries(sym).sort((a, b) => b[1] - a[1]).slice(0, 6)
     weights.sort((a, b) => a.d - b.d)
@@ -1791,7 +1804,7 @@ export default class App extends React.Component {
     const appts = this.apptsView()
     const preg = this.pregActive() ? this.pregView() : null
     const gen = this.arLong(today)
-    const srcTxt = ovE.source === 'lh' ? 'اختبار تبويض (LH) إيجابي' : ovE.source === 'bbt' ? 'ارتفاع حرارة الجسم القاعدية' : 'حساب تقويمي تقديري'
+    const srcTxt = ovE.source === 'lh' ? 'اختبار تبويض (LH) إيجابي' : ovE.source === 'mucus' ? 'مخاط عنق الرحم (كبياض البيض)' : ovE.source === 'bbt' ? 'ارتفاع حرارة الجسم القاعدية' : 'حساب تقويمي تقديري'
     return (
       <div className="screen stagger report">
         <div className="hd no-print" style={{ alignItems: 'center' }}>
@@ -1852,13 +1865,15 @@ export default class App extends React.Component {
         </div>
 
         <div className="card">
-          <div className="ttl">٤) مؤشرات إضافية</div>
+          <div className="ttl">٤) مؤشرات الخصوبة الكتابية (بلا قياس)</div>
           <table className="reptable">
             <tbody>
-              <tr><td>حرارة الجسم القاعدية (BBT)</td><td style={{ fontSize: 12 }}>{bbts.length ? bbts.slice(0, 10).join(' • ') : '—'}</td></tr>
+              <tr><td>أيام ذروة الإفرازات (كبياض البيض)</td><td>{mucusPeak.length ? mucusPeak.join('، ') : '—'}</td></tr>
+              <tr><td>أيام ألم/نغزة التبويض</td><td>{ovPain.length ? ovPain.join('، ') : '—'}</td></tr>
               <tr><td>أبرز الأعراض المتكرّرة</td><td>{topSym.length ? topSym.map(x => x[0] + ' (' + x[1] + ')').join('، ') : '—'}</td></tr>
               <tr><td>الأدوية / المكمّلات</td><td>{meds ? meds + ' يوم مسجّل' : '—'}{s.vitamins && s.vitamins.on ? ' · تذكير الفوليك/الفيتامينات مُفعّل' : ''}</td></tr>
               <tr><td>الوزن</td><td>{weights.length ? (wFirst.v + ' → ' + wLast.v + ' كجم') + (weights.length > 1 ? ' (' + (wLast.v - wFirst.v >= 0 ? '+' : '') + (wLast.v - wFirst.v).toFixed(1) + ')' : '') : '—'}</td></tr>
+              {bbts.length > 0 && <tr><td>حرارة الجسم القاعدية (اختياري)</td><td style={{ fontSize: 12 }}>{bbts.slice(0, 10).join(' • ')}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -2378,6 +2393,8 @@ export default class App extends React.Component {
           <div className="sheethandle"></div>
           <div className="ttl" style={{ marginBottom: 12 }}>تسجيل سريع • {v.logDateLabel}</div>
           <button className={v.intimacyCls} onClick={v.toggleIntimacy} style={{ marginBottom: 12 }}>💞 جماع<span className="yn">{v.intimacyTxt}</span></button>
+          <div className="lbl">💧 الإفرازات (مخاط عنق الرحم)</div>
+          <div className="opts" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>{v.mucusOpts.map(o => <button key={o.key} className={o.cls} style={{ flex: '1 0 28%' }} onClick={o.onClick}>{o.label}</button>)}</div>
           <div className="lbl">😌 المزاج</div>
           <div className="moods" style={{ marginBottom: 12 }}>{v.moodOpts.map(m => <button key={m.key} className={m.cls} onClick={m.onClick}>{m.label}</button>)}</div>
           <div className="lbl">✨ الأعراض</div>
