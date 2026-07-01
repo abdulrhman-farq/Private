@@ -1902,11 +1902,18 @@ export default class App extends React.Component {
           </div>
         )}
 
-        <div className="repnote">
-          هذا التقرير مُولّد من تتبّع منزلي ذاتي، والتقديرات (التبويض، نافذة الخصوبة) تقريبية تعتمد على البيانات المُدخلة؛ يُرجى الاعتماد على التقييم السريري والفحوصات المخبرية.
+        <div className="repsign print-only">
+          <div className="repsigcol"><div className="repsigline"></div><span>ملاحظات الطبيب</span></div>
+          <div className="repsigcol"><div className="repsigline"></div><span>اسم الطبيب المعالج والتوقيع</span></div>
         </div>
 
-        <div className="note no-print">💡 <div>اضغط «طباعة / حفظ PDF» لحفظ التقرير ومشاركته مع الطبيب في الزيارة.</div></div>
+        <div className="repnote">
+          هذا التقرير مُولّد من تتبّع منزلي ذاتي عبر تطبيق «أيام تبويض رويدا»، والتقديرات (يوم التبويض، نافذة الخصوبة) تقريبية تعتمد على البيانات المُدخَلة؛ يُرجى الاعتماد على التقييم السريري والفحوصات المخبرية.
+        </div>
+
+        <div className="repfoot print-only">أيام تبويض رويدا · تقرير خصوبة · صفحة ١ · {gen}</div>
+
+        <div className="note no-print">💡 <div>اضغط «طباعة / حفظ PDF» لحفظ التقرير ومشاركته مع الطبيب في الزيارة. اختر حجم A4 وفعّل «الرسومات الخلفية» لأفضل نتيجة.</div></div>
         <button className="qbtn no-print" onClick={() => this.printReport()}>🖨️ طباعة / حفظ PDF</button>
       </div>
     )
