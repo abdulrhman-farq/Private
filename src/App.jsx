@@ -521,11 +521,18 @@ export default class App extends React.Component {
     if (!Array.isArray(d.appointments)) { d.appointments = []; changed = true }
     if (!s.reminders) { s.reminders = { fertile: true, ovulation: true, period: true, test: false }; changed = true }
     if (!s.vitamins) { s.vitamins = { on: true, hour: 21 }; changed = true }
-    if (!s.msgPreset) { s.msgPreset = 'medium'; changed = true }
-    if (s.fertileBoost === undefined) { s.fertileBoost = true; changed = true }
+    if (!s.msgPreset) { s.msgPreset = 'off'; changed = true }
+    if (s.fertileBoost === undefined) { s.fertileBoost = false; changed = true }
     if (s.prayer === undefined) { s.prayer = true; changed = true }
     if (s.athkar === undefined) { s.athkar = true; changed = true }
     if (!s.prayerAdj) { s.prayerAdj = { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 }; changed = true }
+    // إيقاف رسائل الحب التلقائية لمرة واحدة — نعتمد على الرسائل المكتوبة بالموقع فقط.
+    // يُرفع طابع الإعدادات لـ NOW كي يفوز هذا التغيير على السحابة ويصل للطرف الآخر أيضًا.
+    // العلم محفوظ داخل الإعدادات حتى يبقى بعد الدمج، فلا يُعاد فرض الإيقاف لو فعّلتها لاحقًا يدويًا.
+    if (!s.autoMsgDisabled) {
+      s.msgPreset = 'off'; s.fertileBoost = false; s.autoMsgDisabled = true
+      d.settingsUpdatedAt = NOW(); changed = true
+    }
     // ترقية v5 → v6: إضافة طوابع زمنية لكل عنصر/قسم لدعم الدمج على مستوى العنصر.
     if (!d.v || d.v < 6) { this.migrateV5ToV6(d); changed = true }
     // قوائم الأذكار المشتركة — تُزرع بمعرّفات ثابتة (m0../e0..) ليتطابق الجهازان دون تكرار.
@@ -599,7 +606,7 @@ export default class App extends React.Component {
     const today = this.iso(new Date()), stamp = '1970-01-01T00:00:00.000Z'
     return {
       v: DATA_VERSION,
-      settings: { lastPeriod: today, cycleLength: 28, periodLength: 5, theme: 'light', wife: 'الزوجة', husband: 'الزوج', reminders: { fertile: true, ovulation: true, period: true, test: false }, vitamins: { on: true, hour: 21 }, msgPreset: 'medium', fertileBoost: true },
+      settings: { lastPeriod: today, cycleLength: 28, periodLength: 5, theme: 'light', wife: 'الزوجة', husband: 'الزوج', reminders: { fertile: true, ovulation: true, period: true, test: false }, vitamins: { on: true, hour: 21 }, msgPreset: 'off', fertileBoost: false, autoMsgDisabled: true },
       history: [],
       logs: {},
       appointments: [],
