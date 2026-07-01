@@ -513,3 +513,26 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   .report .repnote{background:#fff!important;border:1px solid #ddd!important;border-radius:4px;font-size:9.5px;color:#555;line-height:1.7;margin-top:12px;padding:8px 10px}
   .report .repfoot{border-top:1px solid #e0e0e0;padding-top:6px;margin-top:10px;color:#999;font-size:10px}
 }
+
+/* ===== تقرير الطبيب: ضغط لصفحة واحدة ===== */
+@media print{
+  @page{size:A4;margin:10mm 11mm}
+  /* عمودان لتقليل الارتفاع */
+  .report{column-count:2;column-gap:13px;font-size:10px}
+  .report>.rephead,.report>.repsign,.report>.repnote,.report>.repfoot{column-span:all;break-inside:avoid}
+  .report .card{break-inside:avoid;page-break-inside:avoid;margin:0 0 8px!important}
+
+  .report .rephead{padding-bottom:8px!important;margin-bottom:10px!important}
+  .report .rephead .reptitle{font-size:15px}
+  .report .rephead .repsub{font-size:10px}
+  .report .rephead .repmeta{margin-top:7px;padding-top:6px;font-size:10.5px;gap:2px 18px}
+
+  .report .ttl{font-size:10.5px;padding:5px 8px}
+  .report .reptable td{font-size:9.7px;padding:3.5px 7px;line-height:1.4}
+  .report .reptable td:first-child{width:46%}
+
+  .report .repsign{margin-top:12px;gap:20px}
+  .report .repsign .repsigcol span{font-size:10px}
+  .report .repnote{font-size:8.7px;line-height:1.55;margin-top:9px;padding:6px 9px}
+  .report .repfoot{font-size:9px;margin-top:7px;padding-top:5px}
+}
