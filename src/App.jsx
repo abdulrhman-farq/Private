@@ -946,6 +946,56 @@ export default class App extends React.Component {
   }
   stdev(a) { const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / a.length) }
 
+  // ---- محرّك السياق: مساعد يومي بدل لوحة معلومات ----
+  dailyAssist() {
+    const today = new Date(), tISO = this.iso(today)
+    const ins = this.getCycleInsights(today), ph = ins.phase
+    const lg = this.data.logs[tISO] || {}
+    const pName = this.identity === 'wife' ? this.data.settings.husband : this.data.settings.wife
+    let sinceInti = 99
+    for (let i = 1; i <= 60; i++) { const l = this.data.logs[this.iso(this.addDays(today, -i))]; if (l && l.intimacy) { sinceInti = i; break } }
+    const openLog = () => { this.setState({ logISO: tISO }); this.go('log') }
+    if (this.pregActive()) { const pv = this.pregView(); return { icon: '🤰', title: 'رحلة الحمل مستمرة', text: 'أنتِ في الأسبوع ' + pv.wk + ' — ' + pv.milestone, aLabel: 'المتابعة', a: () => this.go('home') } }
+    if (ph === 'ovu' || (ph === 'fertile' && ins.daysToOvu <= 1)) return { icon: '💞', title: 'اليوم من أفضل أيامكم', text: 'التوقيت مثالي للقرب اليوم — سجّلوا اللحظة بعدها 🌹', aLabel: lg.intimacy ? 'مسجّلة ✓' : 'تسجيل اللحظة', a: openLog }
+    const lhT = this.lhToday()
+    if (lhT && !lhT.done) return { icon: '🧪', title: 'وقت اختبار التبويض', text: lhT.twice ? 'اختبري مرّتين اليوم حتى لا تفوت الذروة.' : 'اختبري مرّة اليوم وسجّلي النتيجة.', aLabel: 'تسجيل النتيجة', a: openLog }
+    if (ph === 'fertile') return { icon: '🌱', title: 'نافذتكم مفتوحة', text: 'هذي من أفضل أيام المحاولة — قرّبوا المسافة بينكم 💞', aLabel: 'تسجيل اليوم', a: openLog }
+    if (lg.mood) return { icon: '😊', title: 'سُجّل مزاج اليوم', text: 'شاركوا لحظة لطيفة — أرسل ' + (pName ? 'لـ ' + pName : 'له/لها') + ' رسالة الآن.', aLabel: 'إرسال رسالة', a: () => this.go('us') }
+    if (sinceInti >= 8 && ph !== 'period') return { icon: '✨', title: 'رتّبوا لكم وقتًا', text: 'مرّ ' + sinceInti + ' يوم على آخر لحظة مسجّلة — عشاء الليلة فكرة حلوة 🌹', aLabel: 'نبضة شوق', a: () => this.nudgePartner() }
+    if (ph === 'period') return { icon: '🤍', title: 'أيام لطيفة', text: 'اعتنوا ببعض — كوب شاي دافئ ولحظة قرب تكفي اليوم.', aLabel: 'نبضة شوق', a: () => this.nudgePartner() }
+    return { icon: '💗', title: 'لحظة حب', text: this.dailyEncouragement().replace(/^[^ ]+ /, ''), aLabel: 'نبضة شوق', a: () => this.nudgePartner() }
+  }
+  // في مثل هذا اليوم — استرجاع ذكريات نفس اليوم من الأشهر السابقة.
+  onThisDay() {
+    const today = new Date(), out = []
+    for (let m = 1; m <= 12; m++) {
+      const d = new Date(today.getFullYear(), today.getMonth() - m, today.getDate()), lg = this.data.logs[this.iso(d)]
+      if (!lg) continue
+      const parts = []
+      if (lg.intimacy) parts.push('💞 لحظة قرب')
+      if (lg.ovTest === 'إيجابي') parts.push('🧪 تبويض إيجابي')
+      if (lg.pregTest) parts.push('🤍 اختبار حمل: ' + lg.pregTest)
+      if (lg.note) parts.push('📝 ' + lg.note)
+      else if (lg.mood) parts.push(lg.mood)
+      if (parts.length) out.push({ label: m === 1 ? 'قبل شهر' : 'قبل ' + m + ' أشهر', date: this.arShort(d), text: parts.join(' · '), photo: lg.ovPhoto || '' })
+    }
+    return out.slice(0, 3)
+  }
+  // إحصائيات قصّتنا (نحن) — أرقام متحرّكة.
+  ourStory() {
+    const today = new Date(), wed = this.parse('2026-05-29')
+    const days = Math.max(0, this.diff(today, wed))
+    const months = Math.max(0, (today.getFullYear() - wed.getFullYear()) * 12 + (today.getMonth() - wed.getMonth()) - (today.getDate() < wed.getDate() ? 1 : 0))
+    const logs = this.data.logs || {}
+    let inti = 0; for (const k in logs) if (logs[k] && logs[k].intimacy) inti++
+    const occ = (this.data.occasions || []).filter(o => !o.deletedAt).length
+    return [
+      { icon: '💍', v: days, l: 'يوم زواج' }, { icon: '🗓️', v: months, l: 'شهر معًا' },
+      { icon: '🏝️', v: 22, l: 'ذكرى رحلة' }, { icon: '📅', v: Object.keys(logs).length, l: 'يوم مسجّل' },
+      { icon: '💞', v: inti, l: 'لحظة مسجّلة' }, { icon: '🎉', v: occ, l: 'مناسبة' },
+    ]
+  }
+
   // ---- value builders ----
   rvGlobal() {
     const sc = this.state.screen, dark = this.data.settings.theme === 'dark'
@@ -973,8 +1023,8 @@ export default class App extends React.Component {
     const lab = { period: 'فترة الدورة', fertile: 'نافذة الخصوبة', ovu: 'يوم التبويض', pred: 'اقترب موعد الدورة', normal: 'مرحلة عادية' }
     const cvar = { period: 'var(--rose)', fertile: 'var(--fertile)', ovu: 'var(--ovu)', pred: 'var(--rose)', normal: 'var(--ink2)' }
     let title, desc, chance
-    if (ph === 'ovu') { title = 'اليوم هو يوم التبويض 🌟'; desc = 'أعلى فرص الحمل اليوم — التوقيت مثالي.'; chance = 'مرتفعة جدًا' }
-    else if (ph === 'fertile') { const d = dto; title = d > 0 ? ('باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على التبويض') : 'نافذة الخصوبة مفتوحة'; desc = 'أنتِ ضمن نافذة الخصوبة، فرص الحمل مرتفعة.'; chance = d <= 1 ? 'مرتفعة جدًا' : 'مرتفعة' }
+    if (ph === 'ovu') { title = 'اليوم هو يوم التبويض 🌟'; desc = 'التوقيت مثالي — من أفضل أيامكم للمحاولة 💞'; chance = 'مرتفعة جدًا' }
+    else if (ph === 'fertile') { const d = dto; title = d > 0 ? ('باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على التبويض') : 'أيامكم الأجمل للمحاولة'; desc = 'هذي من أفضل أيام المحاولة — قرّبوا المسافة بينكم 💞'; chance = d <= 1 ? 'مرتفعة جدًا' : 'مرتفعة' }
     else if (ph === 'period') { title = 'فترة الدورة الشهرية'; desc = 'اعتني بنفسكِ وسجّلي الأعراض لمتابعة أدق.'; chance = 'منخفضة' }
     else if (ph === 'pred') { const d = dtp; title = d > 0 ? ('باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على الدورة') : 'موعد الدورة اليوم'; desc = 'قد تبدأ الدورة قريبًا، جهّزي نفسكِ.'; chance = 'منخفضة' }
     else { const d = Math.max(0, dto); title = 'باقٍ ' + d + ' ' + (d === 1 ? 'يوم' : 'أيام') + ' على التبويض'; desc = 'أنتِ خارج نافذة الخصوبة حاليًا.'; chance = 'منخفضة' }
@@ -983,8 +1033,10 @@ export default class App extends React.Component {
     const smart = ins.source !== 'calc'
     const srcTxt = ins.source === 'lh' ? 'حسب اختبار التبويض' : ins.source === 'mucus' ? 'حسب الإفرازات' : ins.source === 'bbt' ? 'حسب ارتفاع الحرارة' : 'حسب التقويم'
     const meName = this.identity ? this.identityView(this.identity).name : this.data.settings.wife
+    const cp = ins.conceptionPct
+    const chancePhrase = cp >= 25 ? '✨ فرصة جميلة اليوم' : cp >= 12 ? '🌱 فرصة متوسطة اليوم' : '🤍 فرصة منخفضة اليوم'
     return {
-      greeting: 'أهلاً، ' + meName, todayLabel: this.arLong(today),
+      greeting: 'أهلاً، ' + meName, todayLabel: this.arLong(today), chancePhrase,
       cycleDay: ins.cycleDay, phaseLabel: lab[ph], phasePill: 'pill ' + pmap[ph], ringStyle, ang, ringColor: cvar[ph], ringPct: pct,
       statusTitle: title, statusDesc: desc, chanceLabel: chance, chancePct: ins.conceptionPct,
       ovEstLabel: this.arShort(ins.ovuDate), ovEstSmart: smart, ovEstSrc: srcTxt,
@@ -1296,6 +1348,8 @@ export default class App extends React.Component {
     const pcd = pin >= 60 ? Math.floor(pin / 60) + ' س ' + (pin % 60) + ' د' : pin + ' د'
     const upcoming = this.upcomingItems()
     const lhT = this.lhToday()
+    const assist = this.dailyAssist()
+    const otd = this.onThisDay()
     // هيرو الذكرى: يظهر يوم الذكرى الشهرية وقبلها بيوم
     const wedm = (this.data.occasions || []).find(o => o.id === 'wedm' && !o.deletedAt)
     let anniv = null
@@ -1322,6 +1376,14 @@ export default class App extends React.Component {
           </div>
         )}
 
+        {assist && (
+          <div className="card assist">
+            <div className="ashi">اليوم — ماذا نفعل؟</div>
+            <div className="asrow"><span className="ase">{assist.icon}</span><div><div className="ast">{assist.title}</div><div className="asx">{assist.text}</div></div></div>
+            <button className="qbtn" style={{ marginTop: 13 }} onClick={assist.a}>{assist.aLabel}</button>
+          </div>
+        )}
+
         {!this.identity && (
           <div className="card">
             <div className="ttl">مين يستخدم هذا الجهاز؟</div>
@@ -1342,7 +1404,7 @@ export default class App extends React.Component {
           </div>
           <div className="status">
             <h2>{v.statusTitle}</h2>
-            <div className="chance">احتمالية الحمل اليوم: <b>{v.chancePct}%</b> · {v.chanceLabel}</div>
+            <div className="chance">{v.chancePhrase} · <b>{v.chancePct}%</b></div>
           </div>
           {topTip && <div className="herohint"><span className="se">{topTip.icon}</span><span>{topTip.text}</span></div>}
           <button className="qbtn" style={{ marginTop: 14 }} onClick={g.goLog}>＋ تسجيل اليوم</button>
@@ -1367,6 +1429,18 @@ export default class App extends React.Component {
             <span className="pcl"><span className="pce">🕌</span><span>الصلاة القادمة · <b>{np.name}</b></span></span>
             <span className="pcr">{fmtMin(npMin)}<span className="pcd">بعد {pcd}</span></span>
           </button>
+        )}
+
+        {otd.length > 0 && (
+          <div className="card">
+            <div className="ttl">🕰️ في مثل هذا اليوم</div>
+            {otd.map((o, i) => (
+              <div key={i} className="otdrow">
+                {o.photo && <img className="otdimg" src={o.photo} alt="" onClick={() => this.setState({ imgView: o.photo })} />}
+                <div className="otdm"><div className="otdl">{o.label} · {o.date}</div><div className="otdx">{o.text}</div></div>
+              </div>
+            ))}
+          </div>
         )}
 
         {/* شهر العسل — مدخل سريع */}
@@ -1994,6 +2068,15 @@ export default class App extends React.Component {
             : <div style={{ fontSize: 44, marginBottom: 4 }}>👨‍❤️‍👩</div>}
           <div style={{ fontWeight: 800, fontSize: 17 }}>{this.data.settings.husband} & {this.data.settings.wife} 🤍</div>
           <label className="linkbtn" style={{ cursor: 'pointer' }}>📷 {this.data.settings.couplePhoto ? 'تغيير الصورة' : 'إضافة صورة'}<input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => this.setCouplePhoto(e.target.files && e.target.files[0])} /></label>
+        </div>
+
+        <div className="card">
+          <div className="ttl">✨ قصّتنا بالأرقام</div>
+          <div className="storygrid">
+            {this.ourStory().map((s, i) => (
+              <div key={i} className="storycell"><div className="stye">{s.icon}</div><div className="styv"><CountUp value={s.v} /></div><div className="styl">{s.l}</div></div>
+            ))}
+          </div>
         </div>
 
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('letter')}>💌 رسالتنا — إلى رويدا من عبدالرحمن<span className="yn">›</span></button>
