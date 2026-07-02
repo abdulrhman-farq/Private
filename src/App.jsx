@@ -1636,6 +1636,29 @@ export default class App extends React.Component {
           </button>
         )}
 
+        {/* ★ وصول سريع — مختصر لكل شيء */}
+        <div className="card">
+          <div className="ttl">🧭 وصول سريع</div>
+          <div className="qgrid">
+            {[
+              { e: '📅', l: 'التقويم', go: () => this.go('calendar') },
+              { e: '➕', l: 'تسجيل', go: () => { this.setState({ logISO: this.iso(new Date()) }); this.go('log') } },
+              { e: '💞', l: 'نحن', go: () => this.go('us') },
+              { e: '💜', l: 'قصّتنا', go: () => this.go('lovestory') },
+              { e: '🕰️', l: 'الخط الزمني', go: () => this.go('timeline') },
+              { e: '🏝️', l: 'شهر العسل', go: () => this.go('honeymoon') },
+              { e: '💌', l: 'رسالتنا', go: () => this.go('letter') },
+              { e: '🕌', l: 'الصلاة', go: () => this.go('salah') },
+              { e: '📊', l: 'إحصائيات', go: () => this.go('stats') },
+              { e: '🩺', l: 'الأدوات', go: () => this.go('tools') },
+              { e: '📄', l: 'تقرير', go: () => this.go('report') },
+              { e: '⚙️', l: 'الإعدادات', go: () => this.go('settings') },
+            ].map((q, i) => (
+              <button key={i} className="qtile" onClick={q.go}><span className="qte">{q.e}</span><span className="qtl">{q.l}</span></button>
+            ))}
+          </div>
+        </div>
+
         {/* ٥) من ذكرياتنا — بطاقة واحدة تجمع «في مثل هذا اليوم» وذكرى اليوم */}
         {(otd.length > 0 || mem) && (
           <div className="card">
