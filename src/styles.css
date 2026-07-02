@@ -634,3 +634,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .nightsum .nslist{margin:0;padding-inline-start:18px}
 .nightsum .nslist li{color:#e7dcec;font-size:13px;line-height:1.9}
 .nightsum .nstip{margin-top:10px;background:rgba(255,255,255,.08);border-radius:12px;padding:9px 12px;font-size:13px;font-weight:700;color:#f6d9e4}
+
+/* عناصر القصّة في الخط الزمني (ذهبي) */
+.tlrow.story .tldot{background:#caa46a;box-shadow:0 0 0 3px rgba(202,164,106,.22)}
+.tlrow.story .tlcard{background:linear-gradient(150deg,rgba(202,164,106,.10),var(--card))}
+.tlrow.story .tldate{color:#a9803f}

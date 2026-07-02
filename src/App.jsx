@@ -5,6 +5,7 @@ import { MORNING, EVENING } from './athkar.js'
 import { LETTER_MD, LETTER_TITLE } from './letter.js'
 import { HM_HERO, HM_TIMELINE, HM_MEMORIES, HM_QUOTES, HM_PLACES, HM_ACTIVITIES, HM_INSIGHTS, HM_FUTURE, HM_FILTERS, HM_PHOTOS } from './honeymoon.js'
 import { BOOK_COVER, BOOK_PAGES, BOOK_COVER_AR, BOOK_PAGES_AR } from './honeymoonbook.js'
+import { STORY } from './story.js'
 
 // إصدار مخطّط البيانات الحالي. عند رفعه نُضيف دالة ترقية بدل مسح البيانات.
 const DATA_VERSION = 6
@@ -983,9 +984,13 @@ export default class App extends React.Component {
     else tip = 'نومًا هنيًّا 🌙'
     return { lines: parts, tip }
   }
-  // في مثل هذا اليوم — استرجاع ذكريات نفس اليوم من الأشهر السابقة.
+  // في مثل هذا اليوم — ذكريات القصّة بنفس اليوم/الشهر + سجلّات الأشهر السابقة.
   onThisDay() {
-    const today = new Date(), out = []
+    const today = new Date(), mm = today.getMonth(), dd = today.getDate(), out = []
+    for (const s of STORY) {
+      const p = this.parse(s.d)
+      if (p.getMonth() === mm && p.getDate() === dd) out.push({ label: this.agoLabel(p, today), date: this.arShort(p), text: s.notif || (this.storyIcon(s.ty) + ' ' + s.t), photo: '' })
+    }
     for (let m = 1; m <= 12; m++) {
       const d = new Date(today.getFullYear(), today.getMonth() - m, today.getDate()), lg = this.data.logs[this.iso(d)]
       if (!lg) continue
@@ -997,7 +1002,7 @@ export default class App extends React.Component {
       else if (lg.mood) parts.push(lg.mood)
       if (parts.length) out.push({ label: m === 1 ? 'قبل شهر' : 'قبل ' + m + ' أشهر', date: this.arShort(d), text: parts.join(' · '), photo: lg.ovPhoto || '' })
     }
-    return out.slice(0, 3)
+    return out.slice(0, 4)
   }
   // محطات الرحلة (إنجازات) — أول مرة لكل شيء.
   milestones() {
@@ -1018,9 +1023,13 @@ export default class App extends React.Component {
     ]
     return out
   }
-  // خط زمني موحّد يجمع كل الأحداث (الأحدث أولًا).
+  // أيقونة نوع ذكرى القصة.
+  storyIcon(ty) { return ({ milestone: '⭐', event: '📌', micro: '💬', funny: '😂', family: '👨‍👩‍👧', love: '❤️', achievement: '🏆', dream: '✨', travel: '✈️' })[ty] || '💜' }
+  agoLabel(from, to) { const days = this.diff(to, from); if (days < 45) return 'قبل ' + Math.max(1, days) + ' يوم'; const mo = Math.round(days / 30.4); if (mo < 12) return 'قبل ' + mo + ' ' + (mo === 1 ? 'شهر' : 'أشهر'); const y = Math.round(days / 365); return 'قبل ' + y + ' ' + (y === 1 ? 'سنة' : 'سنوات') }
+  // خط زمني موحّد يجمع كل الأحداث (الأحدث أولًا) — قصّتهم + حياتهم اليومية.
   timelineItems() {
     const items = [], logs = this.data.logs || {}
+    for (const s of STORY) items.push({ iso: s.d, sort: s.d, date: this.arLong(this.parse(s.d)), text: this.storyIcon(s.ty) + ' ' + s.t + (s.q ? '  ·  «' + s.q + '»' : ''), photo: '', story: true })
     for (const iso in logs) {
       const l = logs[iso]; if (!l) continue
       const ev = []
@@ -1047,7 +1056,7 @@ export default class App extends React.Component {
           ? <div className="card"><p className="selsum" style={{ margin: 0 }}>ابدؤوا التسجيل وستظهر لحظاتكم هنا تباعًا 🤍</p></div>
           : <div className="tline">
               {items.map((it, i) => (
-                <div key={i} className={'tlrow' + (it.iso === todayISO ? ' today' : '')}>
+                <div key={i} className={'tlrow' + (it.iso === todayISO ? ' today' : '') + (it.story ? ' story' : '')}>
                   <div className="tldot"></div>
                   <div className="tlcard">
                     <div className="tldate">{it.iso === todayISO ? 'اليوم · ' : ''}{it.date}</div>
@@ -1068,10 +1077,11 @@ export default class App extends React.Component {
     const logs = this.data.logs || {}
     let inti = 0; for (const k in logs) if (logs[k] && logs[k].intimacy) inti++
     const occ = (this.data.occasions || []).filter(o => !o.deletedAt).length
+    const sinceFirst = Math.max(0, this.diff(today, this.parse('2025-12-22')))
     return [
-      { icon: '💍', v: days, l: 'يوم زواج' }, { icon: '🗓️', v: months, l: 'شهر معًا' },
-      { icon: '🏝️', v: 22, l: 'ذكرى رحلة' }, { icon: '📅', v: Object.keys(logs).length, l: 'يوم مسجّل' },
-      { icon: '💞', v: inti, l: 'لحظة مسجّلة' }, { icon: '🎉', v: occ, l: 'مناسبة' },
+      { icon: '💬', v: sinceFirst, l: 'يوم من أول رسالة' }, { icon: '💍', v: days, l: 'يوم زواج' },
+      { icon: '🗓️', v: months, l: 'شهر معًا' }, { icon: '💌', v: STORY.length, l: 'ذكرى موثّقة' },
+      { icon: '🏝️', v: 22, l: 'ذكرى رحلة' }, { icon: '💞', v: inti, l: 'لحظة مسجّلة' },
     ]
   }
 
