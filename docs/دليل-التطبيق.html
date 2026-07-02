@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>دليل تطبيق «أيام تبويض رويدا» — كل الميزات والفلو</title>
+<style>
+  :root{
+    --ink:#241820; --ink2:#6b5560; --rose:#C24E72; --rose2:#E0698A; --rose-s:#FBE3EA;
+    --line:#ece0e4; --bg:#f7f1f3; --card:#fff; --gold:#b98a4b; --green:#2f9e83; --amber:#c98a2b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#e9e1e4;color:var(--ink);font-family:"Segoe UI","Tahoma","Noto Sans Arabic",sans-serif}
+  .page{
+    width:210mm; min-height:297mm; background:var(--card); margin:14px auto; padding:22mm 20mm;
+    box-shadow:0 6px 30px rgba(0,0,0,.14); position:relative; page-break-after:always;
+  }
+  .page:last-child{page-break-after:auto}
+  h1,h2,h3{font-family:"Segoe UI",sans-serif;line-height:1.3}
+  .kicker{font-size:12px;letter-spacing:2px;color:var(--rose);font-weight:700}
+  h1{font-size:30px;margin:6px 0 2px;color:#1c1218}
+  h2{font-size:22px;margin:0 0 4px;color:var(--rose);border-bottom:2px solid var(--rose-s);padding-bottom:9px}
+  h3{font-size:15.5px;margin:16px 0 6px;color:#2a1e25}
+  p,li{font-size:13px;line-height:1.95;color:#332830}
+  .muted{color:var(--ink2)}
+  .pagenum{position:absolute;bottom:12mm;left:20mm;font-size:11px;color:#b9a7b0}
+  .pagenum{color:#b9a7b0}
+  .foot{position:absolute;bottom:12mm;right:20mm;left:20mm;display:flex;justify-content:space-between;font-size:10.5px;color:#b3a1aa;border-top:1px solid var(--line);padding-top:6px}
+  .lead{font-size:14px;color:var(--ink2);line-height:2}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .box{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0}
+  .box .bt{font-weight:800;font-size:13.5px;color:var(--rose);margin-bottom:3px}
+  .pill{display:inline-block;background:var(--rose-s);color:var(--rose);font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;margin:0 0 4px 4px}
+  ul{margin:6px 0;padding-inline-start:20px}
+  li{margin-bottom:3px}
+  .step{display:flex;gap:11px;margin:9px 0;align-items:flex-start}
+  .step .n{flex:0 0 26px;height:26px;border-radius:50%;background:var(--rose);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .step .t{flex:1}
+  .tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
+  .tbl td,.tbl th{border:1px solid var(--line);padding:7px 9px;text-align:right;vertical-align:top}
+  .tbl th{background:var(--rose-s);color:var(--rose);font-size:12px}
+  .tbl td:first-child{background:#faf6f8;font-weight:700;width:34%}
+  .emoji{font-size:15px}
+  .toc a,.toc span{text-decoration:none;color:#2a1e25}
+  .toc .row{display:flex;justify-content:space-between;border-bottom:1px dotted var(--line);padding:8px 2px;font-size:13.5px}
+  .toc .row b{color:var(--rose)}
+  .cover{background:linear-gradient(160deg,#2a1420,#3a1f2e 55%,#1c1018);color:#f6e9ee;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+  .cover .logo{font-size:64px}
+  .cover h1{color:#fff;font-size:40px;margin:12px 0 4px}
+  .cover .sub{color:#e7c6d3;font-size:17px}
+  .cover .rule{width:70px;height:3px;background:var(--gold);margin:20px 0}
+  .cover .meta{color:#caa9b6;font-size:12.5px;letter-spacing:1px;line-height:2.1}
+  .note{background:#fff7fa;border:1px solid var(--rose-s);border-right:4px solid var(--rose);border-radius:8px;padding:9px 12px;font-size:12.5px;margin:10px 0}
+  .ok{border-right-color:var(--green);background:#f2fbf8}
+  .warn{border-right-color:var(--amber);background:#fdf7ee}
+  @media print{
+    html,body{background:#fff}
+    .page{margin:0;box-shadow:none;width:auto;min-height:auto;padding:16mm 15mm}
+    @page{size:A4;margin:0}
+  }
+</style>
+</head>
+<body>
+
+<!-- 1 · الغلاف -->
+<section class="page cover">
+  <div class="logo">🤍</div>
+  <h1>أيام تبويض رويدا</h1>
+  <div class="sub">الدليل الكامل — كل الميزات، كل الفلو، كل الاستخدامات</div>
+  <div class="rule"></div>
+  <div class="meta">
+    رفيق يومي لمتابعة الخصوبة والإنجاب لعبدالرحمن ورويدة<br>
+    تطبيق ويب (PWA) · عربي · يعمل على الجوال والكمبيوتر<br>
+    https://private-bbg3.vercel.app
+  </div>
+</section>
+
+<!-- 2 · المحتويات -->
+<section class="page">
+  <div class="kicker">الفهرس</div>
+  <h1>المحتويات</h1>
+  <div class="toc">
+    <div class="row"><span>١ · نظرة عامة والفلسفة</span><b>٣</b></div>
+    <div class="row"><span>٢ · البداية والهوية والمزامنة</span><b>٤</b></div>
+    <div class="row"><span>٣ · التنقّل (الشريط السفلي)</span><b>٥</b></div>
+    <div class="row"><span>٤ · 🏠 الرئيسية</span><b>٦</b></div>
+    <div class="row"><span>٥ · 📅 التقويم</span><b>٧</b></div>
+    <div class="row"><span>٦ · ➕ التسجيل (السريع والكامل)</span><b>٨</b></div>
+    <div class="row"><span>٧ · 🧪 جدول اختبار التبويض وصور الشرائط</span><b>٩</b></div>
+    <div class="row"><span>٨ · 💞 نحن (تبويب الزوجين)</span><b>١٠</b></div>
+    <div class="row"><span>٩ · 💌 رسائل الحب والتنبيهات</span><b>١١</b></div>
+    <div class="row"><span>١٠ · 🕌 الصلاة والأذكار</span><b>١٢</b></div>
+    <div class="row"><span>١١ · 🏝️ شهر العسل (الأرشيف + الكتاب)</span><b>١٣</b></div>
+    <div class="row"><span>١٢ · 🩺 تقرير الطبيب</span><b>١٤</b></div>
+    <div class="row"><span>١٣ · ☰ المزيد والإعدادات والنسخ الاحتياطي</span><b>١٥</b></div>
+    <div class="row"><span>١٤ · الخصوصية والأمان</span><b>١٦</b></div>
+    <div class="row"><span>١٥ · البنية التقنية</span><b>١٧</b></div>
+    <div class="row"><span>١٦ · الفلوهات خطوة بخطوة</span><b>١٨</b></div>
+  </div>
+  <div class="foot"><span>دليل «أيام تبويض رويدا»</span><span>الفهرس</span></div>
+</section>
+
+<!-- 3 · نظرة عامة -->
+<section class="page">
+  <div class="kicker">١ · نظرة عامة</div>
+  <h1>الفلسفة والهدف</h1>
+  <p class="lead">تطبيق خاص لعبدالرحمن ورويدة لمتابعة الدورة والخصوبة ورحلة الإنجاب، بواجهة عربية هادئة وسهلة، مع لمسات تربط الزوجين ببعض (رسائل، مناسبات، ذكريات). الهدف: <b>مساعد يومي</b> بسيط لا يزعج، ومفيد فعلاً.</p>
+  <div class="grid2">
+    <div class="box"><div class="bt">لمن؟</div>خاص للزوجين — بيانات واحدة مشتركة، يراها ويحدّثها الطرفان (فيو واحد وبيانات وحدة).</div>
+    <div class="box"><div class="bt">أين يعمل؟</div>متصفّح الجوال والكمبيوتر، وقابل للتثبيت كتطبيق (PWA) ويعمل جزئيًا دون اتصال.</div>
+    <div class="box"><div class="bt">اللغة</div>عربي بالكامل (RTL)، مع كتاب شهر العسل بلغتين.</div>
+    <div class="box"><div class="bt">الخصوصية</div>قفل PIN، وبيانات محفوظة سحابيًا مع مزامنة فورية بين الجهازين.</div>
+  </div>
+  <h3>الأركان الخمسة</h3>
+  <ul>
+    <li><b>التتبّع:</b> الدورة، التبويض، الخصوبة، الأعراض، الاختبارات.</li>
+    <li><b>الإنجاب:</b> جدول شرائط التبويض، نافذة الخصوبة، احتمالية الحمل، وضع متابعة الحمل.</li>
+    <li><b>الزوجية:</b> رسائل حب، نبضة شوق، مناسبات، ذكرى الزواج، رسالة وكتاب شهر العسل.</li>
+    <li><b>الروحانية:</b> مواقيت الصلاة بالرياض والأذكار مع تذكيرات.</li>
+    <li><b>الطبّي:</b> تقرير احترافي للطبيب قابل للطباعة في صفحة واحدة.</li>
+  </ul>
+  <div class="foot"><span>١ · نظرة عامة</span><span>٣</span></div>
+</section>
+
+<!-- 4 · البداية والهوية والمزامنة -->
+<section class="page">
+  <div class="kicker">٢ · البداية</div>
+  <h1>الإعداد الأول، الهوية، والمزامنة</h1>
+  <h3>التهيئة (Onboarding)</h3>
+  <p>عند أول فتح تظهر خطوات ترحيب قصيرة تشرح فكرة التطبيق وتضبط الأساسيات (أسماء الزوجين وبيانات الدورة).</p>
+  <h3>من يستخدم هذا الجهاز؟</h3>
+  <p>يختار كل جهاز هويّته مرة واحدة: <span class="pill">👩 رويدة</span> <span class="pill">👨 عبدالرحمن</span>. الهوية تحدّد اتجاه الرسائل (لمن تصل، ومن مَن)، وتظهر في شارة المزامنة أعلى الشاشة.</p>
+  <div class="note ok">💡 نفس البيانات تظهر للطرفين. أي تعديل من أحدهما يظهر عند الثاني خلال ثوانٍ.</div>
+  <h3>المزامنة السحابية</h3>
+  <table class="tbl">
+    <tr><td>التخزين</td><td>محلي على الجهاز + نسخة سحابية مشتركة (Supabase).</td></tr>
+    <tr><td>التحديث الحيّ</td><td>استقطاب دوري + عند العودة للتطبيق، فتظهر تعديلات الطرف الآخر تلقائيًا.</td></tr>
+    <tr><td>الدمج</td><td>على مستوى كل عنصر (كل يوم/موعد/مناسبة) — الأحدث يفوز، فلا تضيع تعديلات أي طرف.</td></tr>
+    <tr><td>شارة الحالة</td><td>أعلى الشاشة تبيّن حالة المزامنة ومن آخر مَن حدّث البيانات.</td></tr>
+  </table>
+  <div class="foot"><span>٢ · البداية</span><span>٤</span></div>
+</section>
+
+<!-- 5 · التنقّل -->
+<section class="page">
+  <div class="kicker">٣ · التنقّل</div>
+  <h1>الشريط السفلي — خمسة تبويبات</h1>
+  <p class="lead">التنقّل الأساسي من شريط سفلي ثابت، والزر الأوسط (➕) للتسجيل السريع من أي مكان.</p>
+  <table class="tbl">
+    <tr><th>التبويب</th><th>الوظيفة</th></tr>
+    <tr><td><span class="emoji">◐</span> الرئيسية</td><td>ملخّص اليوم: مرحلة الدورة، احتمالية الحمل، التنبيهات المهمة، الصلاة، اختبار التبويض، أبرز ما هو قادم.</td></tr>
+    <tr><td><span class="emoji">▦</span> التقويم</td><td>عرض شهري ملوّن، تسجيل ومتابعة كل يوم، المناسبات والمواعيد.</td></tr>
+    <tr><td><span class="emoji">＋</span> (الأوسط)</td><td>تسجيل سريع لليوم (جماع، إفرازات، أعراض، مزاج، وزن، ملاحظة…).</td></tr>
+    <tr><td><span class="emoji">♥</span> نحن</td><td>كل ما يخصّ الزوجين: صورة، نبضة، رسائل، مناسبات، شهر العسل.</td></tr>
+    <tr><td><span class="emoji">☰</span> المزيد</td><td>الصلاة والأذكار، الإحصائيات، الأدوات (مواعيد/تغذية/تقرير)، الإعدادات.</td></tr>
+  </table>
+  <div class="note">🔒 إذا كان قفل PIN مفعّلاً، يظهر أولًا قبل الوصول للتبويبات.</div>
+  <div class="foot"><span>٣ · التنقّل</span><span>٥</span></div>
+</section>
+
+<!-- 6 · الرئيسية -->
+<section class="page">
+  <div class="kicker">٤ · الرئيسية</div>
+  <h1>🏠 الرئيسية</h1>
+  <p class="lead">تعرض أهم شيء اليوم فقط، بترتيب أولوية، دون ازدحام.</p>
+  <h3>البطاقة الرئيسية (الحلقة)</h3>
+  <ul>
+    <li>حلقة تُظهر <b>اليوم من الدورة</b> ولون المرحلة (دورة/خصوبة/تبويض/عادية).</li>
+    <li><b>احتمالية الحمل اليوم %</b> بناءً على القرب من التبويض المقدّر.</li>
+    <li>زر «＋ تسجيل اليوم» ورابط «تفاصيل الدورة».</li>
+  </ul>
+  <h3>البطاقات الأخرى (تظهر عند الحاجة)</h3>
+  <table class="tbl">
+    <tr><td>🧪 اختبار التبويض</td><td>يوم الاختبار: تذكّرك تختبرين مرة/مرّتين، وزر لتسجيل نتيجة الشريط.</td></tr>
+    <tr><td>🕌 الصلاة القادمة</td><td>سطر بسيط باسم الصلاة ووقتها بالرياض والعدّ التنازلي.</td></tr>
+    <tr><td>🏝️ شهر العسل</td><td>مدخل سريع لأرشيف الذكريات والكتاب.</td></tr>
+    <tr><td>📌 أبرز ما هو قادم</td><td>يجمع أقرب الأحداث: تبويض، خصوبة، دورة، مناسبات، مواعيد.</td></tr>
+    <tr><td>💞 ذكرى شهرية</td><td>يوم الذكرى (٢٩ من كل شهر) تظهر بطاقة احتفال ومدخل «رسالتنا».</td></tr>
+    <tr><td>🩸 تأكيد الدورة</td><td>قرب الموعد: «هل بدأت دورتكِ؟» لإعادة ضبط الحسابات بدقّة.</td></tr>
+    <tr><td>🤰 وضع الحمل</td><td>عند نتيجة حمل إيجابية: تفعيل متابعة الحمل (عمر الحمل، الموعد المتوقّع).</td></tr>
+  </table>
+  <div class="foot"><span>٤ · الرئيسية</span><span>٦</span></div>
+</section>
+
+<!-- 7 · التقويم -->
+<section class="page">
+  <div class="kicker">٥ · التقويم</div>
+  <h1>📅 التقويم</h1>
+  <p class="lead">التقويم هو محور الصفحة، وبطاقة تفاصيل اليوم منسدلة أسفله ليبقى التقويم بارزًا.</p>
+  <h3>ألوان الأيام (المفتاح)</h3>
+  <table class="tbl">
+    <tr><td>🔴 الدورة</td><td>أيام الحيض المتوقّعة/المؤكّدة.</td></tr>
+    <tr><td>🟢 الخصوبة</td><td>نافذة الخصوبة حول التبويض.</td></tr>
+    <tr><td>🟡 التبويض</td><td>يوم التبويض المقدّر.</td></tr>
+    <tr><td>▨ متوقّعة</td><td>أيام متوقّعة للدورة القادمة.</td></tr>
+    <tr><td>علامات</td><td>♥ جماع · نقطة حمل · 🎉 مناسبة · 🩺 موعد.</td></tr>
+  </table>
+  <h3>بطاقة اليوم (منسدلة)</h3>
+  <ul>
+    <li>الضغط على أي يوم يفتح لوحته: المرحلة، ملخّص السجلات، وأزرار سريعة.</li>
+    <li><b>زر الدورة الذكي حسب اليوم:</b> «تأكيد بدء الدورة» في يوم مرشّح · «انتهت دورتي هنا» ضمن أيام الحيض · «يوم بدء دورتكِ ✓» لليوم المسجّل — ولا يظهر «تأكيد بدء» إذا كانت الدورة بادية أصلاً.</li>
+  </ul>
+  <div class="note">تأكيد بدء الدورة يعلّم <b>أيامها المتوقّعة فقط</b> (لا كل الشهر)، وتأكيد الانتهاء يضبط طول الحيض الفعلي ويحسّن التوقّعات.</div>
+  <div class="foot"><span>٥ · التقويم</span><span>٧</span></div>
+</section>
+
+<!-- 8 · التسجيل -->
+<section class="page">
+  <div class="kicker">٦ · التسجيل</div>
+  <h1>➕ التسجيل — السريع والكامل</h1>
+  <p class="lead">من الزر الأوسط (➕) تفتح لوحة تسجيل سريعة، ومن «تفاصيل أكثر» تصل لشاشة اليوم الكاملة.</p>
+  <table class="tbl">
+    <tr><th>الحقل</th><th>الاستخدام</th></tr>
+    <tr><td>💞 الجماع</td><td>تسجيل يوم العلاقة (يساعد على توقيت المحاولات).</td></tr>
+    <tr><td>💧 الإفرازات</td><td>مخاط عنق الرحم: جاف/لزج/كريمي/مائي/مثل بياض البيض. «بياض البيض» = ذروة الخصوبة.</td></tr>
+    <tr><td>🧪 اختبار التبويض</td><td>سلبي/إيجابي/غير مؤكد + <b>إرفاق صورة الشريط</b> (تكبر بالضغط، وتُقارن يوم بيوم).</td></tr>
+    <tr><td>🤍 اختبار الحمل</td><td>سلبي/إيجابي/غير مؤكد (الإيجابي يقترح تفعيل وضع الحمل).</td></tr>
+    <tr><td>✨ الأعراض</td><td>تقلصات، صداع، ألم التبويض، حساسية الصدر… إلخ.</td></tr>
+    <tr><td>😌 المزاج</td><td>سعيدة/هادئة/عادية/متوترة/حزينة.</td></tr>
+    <tr><td>💊 الأدوية/المكمّلات</td><td>تعليم أيام تناول الفوليك/الفيتامينات.</td></tr>
+    <tr><td>⚖️ الوزن</td><td>لمتابعة الاتجاه في التقرير.</td></tr>
+    <tr><td>🌡 الحرارة (اختياري)</td><td>حرارة الجسم القاعدية — غير مطلوبة؛ الإفرازات وLH تكفي.</td></tr>
+    <tr><td>📝 ملاحظة</td><td>أي ملاحظة حرّة لليوم.</td></tr>
+  </table>
+  <div class="note ok">💡 المؤشرات المعتمدة للتبويض بالأولوية: اختبار LH إيجابي ← إفرازات كبياض البيض ← الحرارة ← التقويم.</div>
+  <div class="foot"><span>٦ · التسجيل</span><span>٨</span></div>
+</section>
+
+<!-- 9 · جدول LH -->
+<section class="page">
+  <div class="kicker">٧ · شرائط التبويض</div>
+  <h1>🧪 جدول اختبار التبويض (LH)</h1>
+  <p class="lead">يجدول استخدام الشرائط حتى لا تفوت ذروة الـLH، ويذكّركم في الأوقات المناسبة.</p>
+  <h3>الخطة</h3>
+  <ul>
+    <li>من <b>٥ أيام قبل التبويض حتى يوم بعده</b>.</li>
+    <li>الأيام البعيدة: <b>مرّة يوميًا</b> (بين ١٢ ظهرًا و٨ مساءً).</li>
+    <li>أيام الذروة (تبويض−٢ حتى التبويض): <b>مرّتين</b> (١ ظهرًا و٧ مساءً).</li>
+    <li>كل يوم يظهر بحالته: ✓ (النتيجة) / بانتظار، ووسم «ذروة متوقّعة»، ومصغّرة صورة الشريط إن وُجدت.</li>
+  </ul>
+  <h3>قراءة النتيجة</h3>
+  <table class="tbl">
+    <tr><td>إيجابي</td><td>خط T مساوٍ أو أغمق من خط C → التبويض غالبًا خلال ٢٤–٣٦ ساعة.</td></tr>
+    <tr><td>أفضل توقيت للجماع</td><td>يوم النتيجة الإيجابية واليوم الذي يليه.</td></tr>
+    <tr><td>الوقت</td><td>بين ١٢ ظهرًا و٨ مساءً، وقلّلي شرب الماء بساعتين قبله.</td></tr>
+  </table>
+  <div class="note">🔔 التذكيرات تصل للطرفين حتى لو كان التطبيق مغلقًا: ١ ظهرًا في أيام الجدول، وتذكير ثانٍ ٧ مساءً في أيام الذروة — وتتوقّف تلقائيًا إذا سُجّلت نتيجة اليوم.</div>
+  <div class="foot"><span>٧ · شرائط التبويض</span><span>٩</span></div>
+</section>
+
+<!-- 10 · نحن -->
+<section class="page">
+  <div class="kicker">٨ · نحن</div>
+  <h1>💞 تبويب «نحن»</h1>
+  <p class="lead">يجمع كل ما يربط الزوجين — منفصل عن الجانب الطبّي.</p>
+  <table class="tbl">
+    <tr><td>👨‍❤️‍👩 صورة الزوجين</td><td>إضافة/تغيير صورة تظهر أعلى التبويب.</td></tr>
+    <tr><td>💗 نبضة شوق</td><td>إرسال «نبضة» فورية (اهتزاز/قلوب) للطرف الآخر تلفت انتباهه.</td></tr>
+    <tr><td>💌 رسالتنا</td><td>رسالة عبدالرحمن إلى رويدة (فصول ووعود وخاتمة) بصياغة إنسانية.</td></tr>
+    <tr><td>🏝️ شهر العسل</td><td>مدخل لأرشيف الذكريات والكتاب.</td></tr>
+    <tr><td>🔔 جرعة رسائل الحب</td><td>التحكّم بعدد رسائل الحب التلقائية يوميًا + تكثيف في نافذة الخصوبة.</td></tr>
+    <tr><td>🎉 مناسباتكم</td><td>إضافة مناسبات (سنوية) + «ذكرى الزواج الشهرية» تلقائيًا (٢٩ من كل شهر) مع عدّ الأشهر.</td></tr>
+  </table>
+  <div class="note ok">الذكرى الشهرية تظهر بالرئيسية يوم الذكرى وقبلها بيوم، مع «أول شهر 🎉» ثم إتمام الأشهر تباعًا.</div>
+  <div class="foot"><span>٨ · نحن</span><span>١٠</span></div>
+</section>
+
+<!-- 11 · الرسائل والتنبيهات -->
+<section class="page">
+  <div class="kicker">٩ · الرسائل</div>
+  <h1>💌 رسائل الحب والتنبيهات</h1>
+  <p class="lead">نظام إشعارات حقيقي (Web Push) يصل حتى لو كان التطبيق مغلقًا.</p>
+  <h3>رسائل الحب التلقائية</h3>
+  <ul>
+    <li>تصل رويدة رسائل من عبدالرحمن، وعبدالرحمن رسائل من رويدة — بأسلوبكم وألقابكم الخاصة (يا امي · قمري · رودي · قلبي).</li>
+    <li>في نافذة الخصوبة: تكثيف تلقائي للتذكير والتشجيع.</li>
+  </ul>
+  <h3>الجرعة والتحكّم</h3>
+  <table class="tbl">
+    <tr><td>الجرعة</td><td>إيقاف / مرتين / ٤ مرات / كل ساعتين / مكثّف — من تبويب «نحن».</td></tr>
+    <tr><td>رسالة مخصّصة</td><td>اكتب نصًّا، حدّد عدد المرات والأيام والجهة (لها/له/الاثنين) والوقت.</td></tr>
+    <tr><td>إرسال فوري</td><td>إرسال رسالة الآن مباشرة.</td></tr>
+  </table>
+  <div class="note">التنبيهات: عند الضغط على الإشعار يفتح التطبيق ويعرض الرسالة كاملة، والنص يظهر دائمًا.</div>
+  <div class="foot"><span>٩ · الرسائل</span><span>١١</span></div>
+</section>
+
+<!-- 12 · الصلاة والأذكار -->
+<section class="page">
+  <div class="kicker">١٠ · الصلاة</div>
+  <h1>🕌 الصلاة والأذكار</h1>
+  <p class="lead">من «المزيد ← الصلاة والأذكار». ثلاثة تبويبات: أوقات الصلاة، أذكار الصباح، أذكار المساء.</p>
+  <h3>أوقات الصلاة</h3>
+  <ul>
+    <li>محسوبة محليًا لمدينة <b>الرياض</b> بطريقة <b>أم القرى</b> (العشاء = المغرب + ١٢٠ دقيقة).</li>
+    <li>بطاقة «الصلاة القادمة» بعدّ تنازلي، وقائمة مواقيت اليوم.</li>
+    <li><b>تعديل المواقيت ±دقائق</b> لمطابقة مصدرك الرسمي.</li>
+    <li>تذكيرات الصلاة والأذكار تصل للطرفين حتى والتطبيق مغلق.</li>
+  </ul>
+  <h3>الأذكار (قابلة للتخصيص)</h3>
+  <ul>
+    <li>أذكار الصباح والمساء مع <b>عدّاد لكل ذكر</b> (اضغط في أي مكان بالبطاقة ليعدّ).</li>
+    <li><b>حذف</b> أي ذكر (زر ✕ بالزاوية) و<b>إضافة</b> ذكر جديد بنص وعدد مرات.</li>
+    <li>الأذكار المضافة تُحفظ وتُزامن ويقرأها الطرفان.</li>
+  </ul>
+  <div class="foot"><span>١٠ · الصلاة</span><span>١٢</span></div>
+</section>
+
+<!-- 13 · شهر العسل -->
+<section class="page">
+  <div class="kicker">١١ · شهر العسل</div>
+  <h1>🏝️ شهر العسل</h1>
+  <p class="lead">أرشيف ذكريات الرحلة (بالي) مُستخرَج من تسجيل صوتي، بصياغة لطيفة، مع كتاب أنيق.</p>
+  <h3>الأرشيف</h3>
+  <ul>
+    <li>خط زمني يومًا بيوم (٢٢ محطة) بوسوم مزاج (رومانسي/مضحك/مغامرة/هادئ/عميق).</li>
+    <li>بطاقات ذكريات، جدار اقتباسات، أماكن، أنشطة، «ماذا تعلّمنا عن بعض؟»، أحلام قادمة.</li>
+    <li>معرض صور (تكبر بالضغط) وفلاتر (رومانسي/مضحك/مغامرة/مطاعم/فنادق/عميق/مستقبل).</li>
+    <li>الخصوصية: لا يُعرض النص الخام، واللحظات الخاصة بصياغة محترمة.</li>
+  </ul>
+  <h3>الكتاب — «Our Honeymoon»</h3>
+  <ul>
+    <li>قارئ صفحات أنيق: غلاف بصورتكم → ١٥ فصلًا → رسالة أخيرة → غلاف خلفي.</li>
+    <li><b>عربي</b> (افتراضي) و<b>إنجليزي</b> بزر تبديل، بصوت عبدالرحمن (بقلمه)، مع فهرس وتنقّل.</li>
+  </ul>
+  <div class="foot"><span>١١ · شهر العسل</span><span>١٣</span></div>
+</section>
+
+<!-- 14 · تقرير الطبيب -->
+<section class="page">
+  <div class="kicker">١٢ · الطبّي</div>
+  <h1>🩺 تقرير الطبيب</h1>
+  <p class="lead">من «المزيد ← الأدوات ← التقرير». تقرير احترافي لطبيب النساء والولادة والخصوبة، يُطبع أو يُحفظ PDF في <b>صفحة واحدة</b>.</p>
+  <table class="tbl">
+    <tr><th>القسم</th><th>المحتوى</th></tr>
+    <tr><td>الترويسة</td><td>المريضة، الزوج، تاريخ التقرير.</td></tr>
+    <tr><td>١) ملخّص الدورة</td><td>آخر دورة، الطول والمتوسط، المدى، الانتظام (±الانحراف)، مدة الطمث، عدد الدورات، بداية التتبّع.</td></tr>
+    <tr><td>٢) التبويض والخصوبة</td><td>يوم التبويض وطريقة التقدير، نافذة الخصوبة، طول الطور الأصفري، موعد الدورة القادمة.</td></tr>
+    <tr><td>٣) التوقيت (٩٠ يومًا)</td><td>مرات الجماع ونسبتها ضمن نافذة الخصوبة، اختبارات LH، اختبارات الحمل.</td></tr>
+    <tr><td>٤) مؤشرات كتابية</td><td>أيام ذروة الإفرازات، ألم التبويض، أبرز الأعراض، الأدوية/الفوليك، الوزن (والحرارة اختياري).</td></tr>
+    <tr><td>٥) الحمل (إن وُجد)</td><td>عمر الحمل والموعد المتوقّع (EDD).</td></tr>
+    <tr><td>٦) المواعيد + التوقيع</td><td>المواعيد الطبية، وخانة توقيع الطبيب وملاحظاته.</td></tr>
+  </table>
+  <div class="note">للطباعة: A4 + تفعيل «الرسومات الخلفية». التصميم يتحوّل تلقائيًا لمستند رسمي أبيض بعمودين.</div>
+  <div class="foot"><span>١٢ · الطبّي</span><span>١٤</span></div>
+</section>
+
+<!-- 15 · المزيد والإعدادات -->
+<section class="page">
+  <div class="kicker">١٣ · المزيد</div>
+  <h1>☰ المزيد والإعدادات</h1>
+  <h3>الأدوات والإحصائيات</h3>
+  <ul>
+    <li>📊 الإحصائيات: نمط الدورة، الانتظام، متوسط الطول، سجلّ الدورات.</li>
+    <li>🩺 الأدوات: المواعيد الطبية، نصائح التغذية للخصوبة، التقرير.</li>
+  </ul>
+  <h3>الإعدادات (مجموعة)</h3>
+  <table class="tbl">
+    <tr><td>الدورة</td><td>طول الدورة، أيام الحيض.</td></tr>
+    <tr><td>التنبيهات</td><td>الخصوبة، التبويض، الدورة، اختبار التبويض، الفوليك/الفيتامينات، الصلاة، الأذكار.</td></tr>
+    <tr><td>المظهر</td><td>الوضع الفاتح/الداكن.</td></tr>
+    <tr><td>الحساب</td><td>الأسماء، صورة الزوجين.</td></tr>
+    <tr><td>الخصوصية</td><td>قفل PIN، النسخ الاحتياطي/التصدير/الاستيراد.</td></tr>
+  </table>
+  <h3>النسخ الاحتياطي</h3>
+  <ul>
+    <li><b>تصدير</b> نسخة (ملف) و<b>استيراد</b>ها لاحقًا (تُدمج بأمان مع الحالية).</li>
+    <li>نسخة تلقائية قبل الترقيات الكبيرة.</li>
+  </ul>
+  <div class="foot"><span>١٣ · المزيد</span><span>١٥</span></div>
+</section>
+
+<!-- 16 · الخصوصية -->
+<section class="page">
+  <div class="kicker">١٤ · الخصوصية</div>
+  <h1>الخصوصية والأمان</h1>
+  <ul>
+    <li>🔒 <b>قفل PIN</b> من ٤ أرقام، ولوحة مفاتيح بترتيب طبيعي (١-٢-٣).</li>
+    <li>🕒 <b>قفل تلقائي</b> عند العودة للتطبيق بعد دقيقة من الإخفاء (إذا كان PIN مفعّلاً).</li>
+    <li>☁️ البيانات محفوظة سحابيًا بمفتاح مشترك، والوصول عبر دوال محمية.</li>
+    <li>📷 الصور (شرائط/زوجين) تُضغط قبل الحفظ لتقليل الحجم.</li>
+  </ul>
+  <div class="note warn">ملاحظة صريحة: القفل يحمي من النظرة العابرة، لكن الحماية الكاملة للبيانات تحتاج تسجيل دخول فعلي (خطوة مستقبلية اختيارية).</div>
+  <h3>نصائح</h3>
+  <ul>
+    <li>فعّلوا PIN على الجهازين.</li>
+    <li>صدّروا نسخة احتياطية بين فترة وأخرى.</li>
+  </ul>
+  <div class="foot"><span>١٤ · الخصوصية</span><span>١٦</span></div>
+</section>
+
+<!-- 17 · البنية التقنية -->
+<section class="page">
+  <div class="kicker">١٥ · التقنية</div>
+  <h1>البنية التقنية (مختصر)</h1>
+  <table class="tbl">
+    <tr><td>الواجهة</td><td>Vite + React (مكوّن واحد)، عربي RTL، PWA مع Service Worker (network-first).</td></tr>
+    <tr><td>الاستضافة</td><td>Vercel — نشر تلقائي عند كل تحديث.</td></tr>
+    <tr><td>قاعدة البيانات</td><td>Supabase (Postgres) — جدول tracker يحمل البيانات المشتركة (JSON).</td></tr>
+    <tr><td>الإشعارات</td><td>Web Push (VAPID) + جدول اشتراكات، ودوال Edge للإرسال.</td></tr>
+    <tr><td>الجدولة</td><td>pg_cron: فحص كل دقيقة (صلاة/أذكار/اختبار التبويض) وكل فترة (رسائل الحب/تذكيرات يومية).</td></tr>
+    <tr><td>الحسابات</td><td>أوقات الصلاة (أم القرى) ورياضيات الدورة والتبويض محسوبة محليًا وعلى الخادم.</td></tr>
+  </table>
+  <div class="note">كل الحسابات الحسّاسة (تبويض/خصوبة/صلاة) تعمل دون اتصال داخل التطبيق، والخادم يكرّرها للتذكيرات وقت الإغلاق.</div>
+  <div class="foot"><span>١٥ · التقنية</span><span>١٧</span></div>
+</section>
+
+<!-- 18 · الفلوهات -->
+<section class="page">
+  <div class="kicker">١٦ · الفلوهات</div>
+  <h1>سيناريوهات الاستخدام (خطوة بخطوة)</h1>
+
+  <h3>أ) تسجيل يوم بسرعة</h3>
+  <div class="step"><div class="n">١</div><div class="t">اضغطي ➕ الأوسط.</div></div>
+  <div class="step"><div class="n">٢</div><div class="t">علّمي الجماع/الإفرازات/الأعراض/المزاج، وأضيفي وزنًا أو ملاحظة.</div></div>
+  <div class="step"><div class="n">٣</div><div class="t">«تم ✓» — يُحفظ ويُزامن فورًا.</div></div>
+
+  <h3>ب) محاولة الحمل مع شرائط التبويض</h3>
+  <div class="step"><div class="n">١</div><div class="t">افتحي «جدول اختبار التبويض» (من الرئيسية).</div></div>
+  <div class="step"><div class="n">٢</div><div class="t">اختبري حسب الجدول (مرة/مرّتين)، وأرفقي صورة الشريط.</div></div>
+  <div class="step"><div class="n">٣</div><div class="t">عند إيجابية (T ≥ C): أفضل أيام المحاولة اليوم والغد.</div></div>
+
+  <h3>ج) تأكيد الدورة</h3>
+  <div class="step"><div class="n">١</div><div class="t">قرب الموعد تظهر بطاقة «هل بدأت دورتكِ؟».</div></div>
+  <div class="step"><div class="n">٢</div><div class="t">أكّدي اليوم أو اختاري يوم البداية → تُعلّم أيامها المتوقّعة فقط.</div></div>
+  <div class="step"><div class="n">٣</div><div class="t">عند الانتهاء: «انتهت دورتي» لضبط الطول وتحسين التوقّع.</div></div>
+
+  <h3>د) طباعة تقرير الطبيب</h3>
+  <div class="step"><div class="n">١</div><div class="t">المزيد ← الأدوات ← التقرير.</div></div>
+  <div class="step"><div class="n">٢</div><div class="t">«طباعة / حفظ PDF» → A4 + الرسومات الخلفية → صفحة واحدة أنيقة.</div></div>
+
+  <div class="foot"><span>١٦ · الفلوهات</span><span>١٨</span></div>
+</section>
+
+</body>
+</html>
