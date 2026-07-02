@@ -965,6 +965,24 @@ export default class App extends React.Component {
     if (ph === 'period') return { icon: '🤍', title: 'أيام لطيفة', text: 'اعتنوا ببعض — كوب شاي دافئ ولحظة قرب تكفي اليوم.', aLabel: 'نبضة شوق', a: () => this.nudgePartner() }
     return { icon: '💗', title: 'لحظة حب', text: this.dailyEncouragement().replace(/^[^ ]+ /, ''), aLabel: 'نبضة شوق', a: () => this.nudgePartner() }
   }
+  // ملخّص اليوم — يُولَّد مساءً من بيانات اليوم مع اقتراح.
+  nightSummary() {
+    const tISO = this.iso(new Date()), l = this.data.logs[tISO] || {}
+    const ins = this.getCycleInsights(new Date())
+    const lab = { period: 'فترة الدورة', fertile: 'نافذة الخصوبة', ovu: 'يوم التبويض', pred: 'قبيل الدورة', normal: 'مرحلة عادية' }
+    const parts = ['اليوم ' + ins.cycleDay + ' من دورتكِ · ' + (lab[ins.phase] || '')]
+    if (l.ovTest) parts.push('اختبار التبويض: ' + l.ovTest)
+    if (l.mucus) parts.push('الإفرازات: ' + l.mucus)
+    if (l.intimacy) parts.push('سُجّلت لحظة قرب 💞')
+    if (l.mood) parts.push('المزاج: ' + l.mood)
+    if (l.symptoms && l.symptoms.length) parts.push('أعراض: ' + l.symptoms.join('، '))
+    let tip
+    if (ins.phase === 'fertile' || ins.phase === 'ovu') tip = 'التوقيت مناسب — محاولة الليلة وغدًا فكرة حلوة 💞'
+    else if (this.lhToday() && !l.ovTest) tip = 'لا تنسَي تسجيل اختبار التبويض اليوم 🧪'
+    else if (!l.mood && !l.intimacy && !l.note && !l.ovTest) tip = 'ما سجّلتِ شي اليوم — لحظة تسجيل سريعة تكفي 🤍'
+    else tip = 'نومًا هنيًّا 🌙'
+    return { lines: parts, tip }
+  }
   // في مثل هذا اليوم — استرجاع ذكريات نفس اليوم من الأشهر السابقة.
   onThisDay() {
     const today = new Date(), out = []
@@ -1419,6 +1437,7 @@ export default class App extends React.Component {
     const lhT = this.lhToday()
     const assist = this.dailyAssist()
     const otd = this.onThisDay()
+    const night = riyadhNowMin() >= 1140 ? this.nightSummary() : null
     // هيرو الذكرى: يظهر يوم الذكرى الشهرية وقبلها بيوم
     const wedm = (this.data.occasions || []).find(o => o.id === 'wedm' && !o.deletedAt)
     let anniv = null
@@ -1498,6 +1517,14 @@ export default class App extends React.Component {
             <span className="pcl"><span className="pce">🕌</span><span>الصلاة القادمة · <b>{np.name}</b></span></span>
             <span className="pcr">{fmtMin(npMin)}<span className="pcd">بعد {pcd}</span></span>
           </button>
+        )}
+
+        {night && (
+          <div className="card nightsum">
+            <div className="ttl">🌙 ملخّص اليوم</div>
+            <ul className="nslist">{night.lines.map((x, i) => <li key={i}>{x}</li>)}</ul>
+            <div className="nstip">{night.tip}</div>
+          </div>
         )}
 
         {otd.length > 0 && (

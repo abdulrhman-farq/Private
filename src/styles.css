@@ -627,3 +627,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .app.dark .phone.pf-period{background:radial-gradient(120% 80% at 50% 0%,#2a1320,#140d13 55%)}
 .app.dark .phone.pf-preg{background:radial-gradient(120% 80% at 50% 0%,#2a2312,#140d13 55%)}
 .app.dark .phone.pf-anniv{background:radial-gradient(120% 80% at 50% 0%,#2e1526,#140d13 55%)}
+
+/* ملخّص الليلة */
+.nightsum{background:linear-gradient(160deg,#20182a,#2a1f30);color:#efe6f2}
+.nightsum .ttl{color:#e7c6d3}
+.nightsum .nslist{margin:0;padding-inline-start:18px}
+.nightsum .nslist li{color:#e7dcec;font-size:13px;line-height:1.9}
+.nightsum .nstip{margin-top:10px;background:rgba(255,255,255,.08);border-radius:12px;padding:9px 12px;font-size:13px;font-weight:700;color:#f6d9e4}
