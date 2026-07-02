@@ -1530,23 +1530,7 @@ export default class App extends React.Component {
           <button className="tbtn" aria-label="الإعدادات" onClick={g.goSettings}><Icon name="settings" /></button>
         </div>
 
-        {anniv && (
-          <div className="card annivhero">
-            <div className="ahe">💞</div>
-            <div className="aht">{anniv.label}</div>
-            <div className="ahs">عبدالرحمن 🤍 رويدا · {anniv.when}</div>
-            <button className="qbtn" style={{ marginTop: 14 }} onClick={() => this.go('letter')}>💌 افتحي رسالتنا</button>
-          </div>
-        )}
-
-        {assist && (
-          <div className="card assist">
-            <div className="ashi">اليوم — ماذا نفعل؟</div>
-            <div className="asrow"><span className="ase">{assist.icon}</span><div><div className="ast">{assist.title}</div><div className="asx">{assist.text}</div></div></div>
-            <button className="qbtn" style={{ marginTop: 13 }} onClick={assist.a}>{assist.aLabel}</button>
-          </div>
-        )}
-
+        {/* اختيار المستخدم أولًا إن لزم */}
         {!this.identity && (
           <div className="card">
             <div className="ttl">مين يستخدم هذا الجهاز؟</div>
@@ -1557,7 +1541,50 @@ export default class App extends React.Component {
           </div>
         )}
 
-        {/* ١) بطاقة البطل — أهم شيء اليوم */}
+        {/* هيرو الذكرى — يوم المناسبة فقط */}
+        {anniv && (
+          <div className="card annivhero">
+            <div className="ahe">💞</div>
+            <div className="aht">{anniv.label}</div>
+            <div className="ahs">عبدالرحمن 🤍 رويدا · {anniv.when}</div>
+            <button className="qbtn" style={{ marginTop: 14 }} onClick={() => this.go('letter')}>💌 افتحي رسالتنا</button>
+          </div>
+        )}
+
+        {/* ★ تنبيه واحد مهم فقط — أعلى الصفحة عند الحاجة */}
+        {showPreg && (
+          <div className="card" style={{ animation: 'pop .3s' }}>
+            <div className="alert good" style={{ marginBottom: 13 }}><div className="ae">🎉</div><div><div className="at">مبروك!</div><div className="ax">{v.pregAlert.msg}</div></div></div>
+            <button className="qbtn" onClick={() => this.setPregnancy(true)}>🤰 تفعيل وضع متابعة الحمل</button>
+          </div>
+        )}
+        {showPeriod && (
+          <div className="card" style={{ animation: 'pop .3s' }}>
+            <div className="ttl">{v.periodPrompt.title}</div>
+            <p className="selsum">هل بدأت دورتكِ فعلًا؟ أكّدي ليُعاد حساب التبويض والخصوبة بدقّة.</p>
+            <button className="qbtn" onClick={v.confirmToday}>🩸 نعم، بدأت اليوم</button>
+            <div className="fld" style={{ marginTop: 13 }}>
+              <span style={{ fontSize: 13, color: 'var(--ink2)' }}>أو اختاري يوم البداية</span>
+              <input className="datein" type="date" value="" onChange={v.confirmOnDate} />
+            </div>
+          </div>
+        )}
+        {!showPeriod && v.inPeriod && (
+          <div className="card" style={{ animation: 'pop .3s' }}>
+            <div className="ttl">🩸 دورتكِ مستمرة</div>
+            <p className="selsum">عند انتهائها أكّدي ليُضبط طول الحيض الفعلي — تُحدَّد أيام الدورة فقط لا كل الشهر.</p>
+            <button className="qbtn" onClick={v.endToday}>✅ انتهت دورتي اليوم</button>
+            <div className="fld" style={{ marginTop: 13 }}>
+              <span style={{ fontSize: 13, color: 'var(--ink2)' }}>أو اختاري يوم الانتهاء</span>
+              <input className="datein" type="date" value="" onChange={v.endOnDate} />
+            </div>
+          </div>
+        )}
+        {showAppt && (
+          <div className="alert"><div className="ae">🩺</div><div><div className="at">{apptSoon.when === 'اليوم' ? 'موعدكم اليوم' : 'تذكير موعد بكرة'}</div><div className="ax">{apptSoon.type}{apptSoon.note ? ' — ' + apptSoon.note : ''}</div></div></div>
+        )}
+
+        {/* ١) بطاقة البطل — حالة اليوم */}
         <div className="card">
           <div className="ringwrap">
             {this.renderRing(v.ringPct, v.ringColor, (
@@ -1570,11 +1597,26 @@ export default class App extends React.Component {
             <div className="chance">{v.chancePhrase} · <b>{v.chancePct}%</b></div>
           </div>
           {topTip && <div className="herohint"><span className="se">{topTip.icon}</span><span>{topTip.text}</span></div>}
+          {showTww && (
+            <div className="herohint" style={{ marginTop: 8 }}>
+              <span className="se">⏳</span>
+              <span>الأسبوعان بعد التبويض — اليوم {tww.day} من ١٤. {tww.msg}</span>
+            </div>
+          )}
           <button className="qbtn" style={{ marginTop: 14 }} onClick={g.goLog}>＋ تسجيل اليوم</button>
           <button className="linkbtn" onClick={() => this.go('cycle')}>تفاصيل الدورة ‹</button>
         </div>
 
-        {/* جدول اختبار التبويض (LH) — يظهر أيام الاختبار */}
+        {/* ٢) ماذا نفعل اليوم */}
+        {assist && (
+          <div className="card assist">
+            <div className="ashi">اليوم — ماذا نفعل؟</div>
+            <div className="asrow"><span className="ase">{assist.icon}</span><div><div className="ast">{assist.title}</div><div className="asx">{assist.text}</div></div></div>
+            <button className="qbtn" style={{ marginTop: 13 }} onClick={assist.a}>{assist.aLabel}</button>
+          </div>
+        )}
+
+        {/* ٣) اختبار التبويض (LH) — عند الحاجة */}
         {lhT && (
           <div className="card lhcard">
             <div className="ttl">🧪 وقت اختبار التبويض اليوم</div>
@@ -1586,7 +1628,7 @@ export default class App extends React.Component {
           </div>
         )}
 
-        {/* الصلاة القادمة — سطر بسيط */}
+        {/* ٤) الصلاة القادمة — سطر بسيط */}
         {this.data.settings.prayer !== false && (
           <button className="card prayerchip" onClick={() => this.go('salah')}>
             <span className="pcl"><span className="pce">🕌</span><span>الصلاة القادمة · <b>{np.name}</b></span></span>
@@ -1594,6 +1636,28 @@ export default class App extends React.Component {
           </button>
         )}
 
+        {/* ٥) من ذكرياتنا — بطاقة واحدة تجمع «في مثل هذا اليوم» وذكرى اليوم */}
+        {(otd.length > 0 || mem) && (
+          <div className="card">
+            <div className="ttl">💜 من ذكرياتنا</div>
+            {otd.length > 0
+              ? otd.map((o, i) => (
+                  <div key={i} className="otdrow">
+                    {o.photo && <img className="otdimg" src={o.photo} alt="" onClick={() => this.setState({ imgView: o.photo })} />}
+                    <div className="otdm"><div className="otdl">{o.label} · {o.date}</div><div className="otdx">{o.text}</div></div>
+                  </div>
+                ))
+              : (
+                <>
+                  <div className="memrow"><span className="meme">{mem.icon}</span><div><div className="memt">{mem.title}</div><div className="memd">{mem.date}</div></div></div>
+                  {mem.quote ? <div className="memq">«{mem.quote}»</div> : <div className="memx">{mem.desc}</div>}
+                </>
+              )}
+            <button className="linkbtn" style={{ marginTop: 8 }} onClick={() => this.go('us')}>قصّتنا كاملة ‹</button>
+          </div>
+        )}
+
+        {/* ٦) ملخّص المساء — مساءً فقط */}
         {night && (
           <div className="card nightsum">
             <div className="ttl">🌙 ملخّص اليوم</div>
@@ -1602,35 +1666,7 @@ export default class App extends React.Component {
           </div>
         )}
 
-        {otd.length > 0 && (
-          <div className="card">
-            <div className="ttl">🕰️ في مثل هذا اليوم</div>
-            {otd.map((o, i) => (
-              <div key={i} className="otdrow">
-                {o.photo && <img className="otdimg" src={o.photo} alt="" onClick={() => this.setState({ imgView: o.photo })} />}
-                <div className="otdm"><div className="otdl">{o.label} · {o.date}</div><div className="otdx">{o.text}</div></div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {mem && (
-          <button className="card memcard" onClick={() => this.go('lovestory')}>
-            <div className="ttl" style={{ margin: 0 }}>💜 من ذكرياتنا</div>
-            <div className="memrow"><span className="meme">{mem.icon}</span><div><div className="memt">{mem.title}</div><div className="memd">{mem.date}</div></div></div>
-            {mem.quote ? <div className="memq">«{mem.quote}»</div> : <div className="memx">{mem.desc}</div>}
-            <div className="memlink">قصّة حبنا كاملة ‹</div>
-          </button>
-        )}
-
-        {/* شهر العسل — مدخل سريع */}
-        <button className="card hmentry" onClick={() => this.go('honeymoon')}>
-          <span className="hmel">🏝️</span>
-          <span className="hmem"><span className="hmet">شهر العسل</span><span className="hmed">ذكرياتنا الأولى بعد الزواج</span></span>
-          <span className="hmear">›</span>
-        </button>
-
-        {/* أبرز ما هو قادم — تبويض ومناسبات ومواعيد */}
+        {/* ٧) أبرز ما هو قادم */}
         {upcoming.length > 0 && (
           <div className="card">
             <div className="ttl">📌 أبرز ما هو قادم</div>
@@ -1646,54 +1682,7 @@ export default class App extends React.Component {
           </div>
         )}
 
-        {/* ٢) نصيحة اليوم */}
-        <div className="card">
-          <div className="tip"><div className="te">💡</div><div><div className="tt">نصيحة اليوم</div><div className="tx">{v.dailyTip}</div></div></div>
-        </div>
-
-        {/* ٣) تنبيه مهم — يظهر فقط عند الحاجة */}
-        {showPreg && (
-          <div className="card" style={{ animation: 'pop .3s' }}>
-            <div className="alert good" style={{ marginBottom: 13 }}><div className="ae">🎉</div><div><div className="at">مبروك!</div><div className="ax">{v.pregAlert.msg}</div></div></div>
-            <button className="qbtn" onClick={() => this.setPregnancy(true)}>🤰 تفعيل وضع متابعة الحمل</button>
-          </div>
-        )}
-        {showPeriod && (
-          <div className="card">
-            <div className="ttl">{v.periodPrompt.title}</div>
-            <p className="selsum">هل بدأت دورتكِ فعلًا؟ أكّدي ليُعاد حساب التبويض والخصوبة بدقّة.</p>
-            <button className="qbtn" onClick={v.confirmToday}>🩸 نعم، بدأت اليوم</button>
-            <div className="fld" style={{ marginTop: 13 }}>
-              <span style={{ fontSize: 13, color: 'var(--ink2)' }}>أو اختاري يوم البداية</span>
-              <input className="datein" type="date" value="" onChange={v.confirmOnDate} />
-            </div>
-          </div>
-        )}
-        {v.inPeriod && (
-          <div className="card">
-            <div className="ttl">🩸 دورتكِ مستمرة</div>
-            <p className="selsum">عند انتهائها أكّدي ليُضبط طول الحيض الفعلي — تُحدَّد أيام الدورة فقط لا كل الشهر.</p>
-            <button className="qbtn" onClick={v.endToday}>✅ انتهت دورتي اليوم</button>
-            <div className="fld" style={{ marginTop: 13 }}>
-              <span style={{ fontSize: 13, color: 'var(--ink2)' }}>أو اختاري يوم الانتهاء</span>
-              <input className="datein" type="date" value="" onChange={v.endOnDate} />
-            </div>
-          </div>
-        )}
-        {showAppt && (
-          <div className="alert"><div className="ae">🩺</div><div><div className="at">{apptSoon.when === 'اليوم' ? 'موعدكم اليوم' : 'تذكير موعد بكرة'}</div><div className="ax">{apptSoon.type}{apptSoon.note ? ' — ' + apptSoon.note : ''}</div></div></div>
-        )}
-        {showTww && (
-          <div className="card">
-            <div className="ttl">⏳ الأسبوعان بعد التبويض — اليوم {tww.day} من 14</div>
-            <div className="track" style={{ height: 8, borderRadius: 6, background: 'var(--track)', overflow: 'hidden', margin: '4px 0 10px' }}>
-              <div style={{ width: tww.pct + '%', height: '100%', background: 'var(--grad)' }}></div>
-            </div>
-            <p className="selsum" style={{ margin: 0 }}>{tww.msg}</p>
-          </div>
-        )}
-
-        {/* ٤) رسالة لطيفة / دعاء */}
+        {/* ٨) رسالة لطيفة / دعاء */}
         <div className="note" style={{ marginTop: 4 }}>{this.dailyEncouragement()}</div>
       </div>
     )
@@ -2301,10 +2290,13 @@ export default class App extends React.Component {
           </div>
         </div>
 
-        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('lovestory')}>💜 قصّة حبنا — بفصول شهرية<span className="yn">›</span></button>
-        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('timeline')}>🕰️ الخط الزمني — كل لحظاتكم<span className="yn">›</span></button>
-        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('letter')}>💌 رسالتنا — إلى رويدا من عبدالرحمن<span className="yn">›</span></button>
-        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('honeymoon')}>🏝️ شهر العسل — ذكرياتنا الأولى<span className="yn">›</span></button>
+        <div className="card">
+          <div className="ttl">📖 استكشفوا قصّتكم</div>
+          <button className="navrow" onClick={() => this.go('lovestory')}><span className="nre">💜</span><span className="nrm"><span className="nrt">قصّة حبنا</span><span className="nrx">بفصول شهرية — من أول رسالة</span></span><span className="nra">›</span></button>
+          <button className="navrow" onClick={() => this.go('timeline')}><span className="nre">🕰️</span><span className="nrm"><span className="nrt">الخط الزمني</span><span className="nrx">كل لحظاتكم في مكان واحد</span></span><span className="nra">›</span></button>
+          <button className="navrow" onClick={() => this.go('letter')}><span className="nre">💌</span><span className="nrm"><span className="nrt">رسالتنا</span><span className="nrx">إلى رويدا من عبدالرحمن</span></span><span className="nra">›</span></button>
+          <button className="navrow" onClick={() => this.go('honeymoon')}><span className="nre">🏝️</span><span className="nrm"><span className="nrt">شهر العسل</span><span className="nrx">ذكرياتنا الأولى بعد الزواج</span></span><span className="nra">›</span></button>
+        </div>
         <button className="qbtn" style={{ marginBottom: 16, fontSize: 16, padding: 18 }} onClick={() => this.nudgePartner()}>💗 نبضة شوق{partnerName ? ' لـ ' + partnerName : ''}</button>
 
         {(() => { const a = this.achievements(); return (
@@ -2418,11 +2410,17 @@ export default class App extends React.Component {
     return (
       <div className="screen stagger">
         <div className="hd"><div><div className="hi">أدوات وإعدادات</div><h1 className="nm">المزيد ☰</h1></div></div>
-        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('salah')}>🕌 الصلاة والأذكار<span className="yn">›</span></button>
-        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('stats')}>📊 الإحصائيات<span className="yn">›</span></button>
-        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('tools')}>🩺 الأدوات (مواعيد · تغذية · تقرير)<span className="yn">›</span></button>
-        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('settings')}>⚙️ الإعدادات<span className="yn">›</span></button>
-        <div className="note" style={{ marginTop: 6 }}>💡 <div>الرسائل والمناسبات وإعدادات الزوجين انتقلت إلى تبويب «نحن 💞».</div></div>
+        <div className="card">
+          <div className="ttl">🕌 الروحانيات والمتابعة</div>
+          <button className="navrow" onClick={() => this.go('salah')}><span className="nre">🕌</span><span className="nrm"><span className="nrt">الصلاة والأذكار</span><span className="nrx">مواقيت الرياض وأذكار الصباح والمساء</span></span><span className="nra">›</span></button>
+          <button className="navrow" onClick={() => this.go('stats')}><span className="nre">📊</span><span className="nrm"><span className="nrt">الإحصائيات</span><span className="nrx">نمط دورتكِ وتحليل البيانات</span></span><span className="nra">›</span></button>
+        </div>
+        <div className="card">
+          <div className="ttl">🩺 الأدوات والإعدادات</div>
+          <button className="navrow" onClick={() => this.go('tools')}><span className="nre">🩺</span><span className="nrm"><span className="nrt">الأدوات الطبية</span><span className="nrx">مواعيد · تغذية · تقرير للطبيب</span></span><span className="nra">›</span></button>
+          <button className="navrow" onClick={() => this.go('settings')}><span className="nre">⚙️</span><span className="nrm"><span className="nrt">الإعدادات</span><span className="nrx">الأسماء · المزامنة · الوضع الليلي</span></span><span className="nra">›</span></button>
+        </div>
+        <div className="note" style={{ marginTop: 6 }}>💡 <div>ذكرياتكم وقصّتكم ورسائلكم في تبويب «نحن 💞».</div></div>
       </div>
     )
   }

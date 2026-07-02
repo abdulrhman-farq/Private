@@ -671,3 +671,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .dayall-ago{font-size:11px;color:var(--ink2);font-weight:600}
 .dayall-q{margin-top:5px;font-size:12.5px;color:var(--rose-d);font-weight:700;line-height:1.8}
 .dayall-photo{width:100%;border-radius:12px;margin-top:4px;cursor:pointer;box-shadow:var(--shadow-s)}
+
+/* clean navigation rows (نحن / المزيد) */
+.navrow{display:flex;align-items:center;gap:12px;width:100%;background:transparent;border:none;padding:11px 4px;cursor:pointer;text-align:right;border-bottom:1px solid var(--line,rgba(0,0,0,.05))}
+.navrow:last-child{border-bottom:none}
+.navrow .nre{font-size:20px;width:38px;height:38px;line-height:38px;text-align:center;background:var(--rose-s);border-radius:12px;flex:none}
+.navrow .nrm{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.navrow .nrt{font-size:14.5px;font-weight:800;color:var(--ink)}
+.navrow .nrx{font-size:11.5px;color:var(--ink2);line-height:1.5}
+.navrow .nra{font-size:19px;color:var(--ink2);flex:none}
+.navrow:active{opacity:.6}
