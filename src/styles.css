@@ -589,11 +589,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .tlimg{width:64px;height:64px;object-fit:cover;border-radius:10px;margin-top:9px;cursor:pointer}
 
 /* محطات الرحلة */
-.mstones{display:flex;flex-direction:column;gap:9px}
-.mstone{display:flex;align-items:center;gap:11px;opacity:.5}
+.mstones{display:flex;flex-direction:column;gap:2px;position:relative}
+.mstone{display:flex;align-items:flex-start;gap:11px;opacity:.55;position:relative;padding:6px 0}
+.mstone::before{content:'';position:absolute;right:14px;top:0;bottom:0;width:2px;background:var(--rose-s);z-index:0}
+.mstone:first-child::before{top:18px}
+.mstone:last-child::before{bottom:auto;height:18px}
 .mstone.done{opacity:1}
-.mstone .mse{font-size:22px;width:30px;text-align:center}
-.mstone .mst{font-size:13.5px;font-weight:700}
+.mstone .mse{font-size:18px;width:30px;height:30px;line-height:30px;text-align:center;background:var(--card);border-radius:50%;box-shadow:0 0 0 3px var(--rose-s);position:relative;z-index:1;flex:none}
+.mstone.done .mse{box-shadow:0 0 0 3px var(--fertile)}
+.mstone .mst{font-size:13.5px;font-weight:700;line-height:1.6;padding-top:4px}
 .mstone .msx{font-size:11.5px;color:var(--ink2)}
 .mstone.done .msx{color:var(--fertile)}
 
@@ -654,3 +658,16 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .lsmem .lstitle{font-size:15px;font-weight:800;color:var(--ink);margin-top:3px;line-height:1.6}
 .lsmem .lsdesc{font-size:13px;color:var(--ink2);line-height:1.9;margin:6px 0 0}
 .lsmem .lsquote{margin-top:9px;background:var(--rose-s);color:var(--rose-d);border-radius:11px;padding:8px 12px;font-size:13.5px;font-weight:700;line-height:1.8}
+
+/* calendar day — everything block */
+.dayall{background:var(--rose-s);border-radius:15px;padding:12px 13px;margin-bottom:14px}
+.dayall-hd{font-size:12.5px;font-weight:800;color:var(--rose-d);margin-bottom:9px}
+.dayall-row{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;background:var(--card);border-radius:12px;margin-bottom:7px;box-shadow:var(--shadow-s)}
+.dayall-row:last-child{margin-bottom:0}
+.dayall-row.story{border-right:3px solid #c9a227}
+.dayall-ic{font-size:17px;line-height:1.5;flex:none}
+.dayall-body{flex:1;min-width:0}
+.dayall-t{font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.7}
+.dayall-ago{font-size:11px;color:var(--ink2);font-weight:600}
+.dayall-q{margin-top:5px;font-size:12.5px;color:var(--rose-d);font-weight:700;line-height:1.8}
+.dayall-photo{width:100%;border-radius:12px;margin-top:4px;cursor:pointer;box-shadow:var(--shadow-s)}

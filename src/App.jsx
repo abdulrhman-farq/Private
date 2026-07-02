@@ -984,6 +984,13 @@ export default class App extends React.Component {
     else tip = 'نومًا هنيًّا 🌙'
     return { lines: parts, tip }
   }
+  // ذكرى اليوم — من الأرشيف، تتغيّر يوميًا (ثابتة خلال اليوم).
+  memoryOfDay() {
+    const pool = STORY.filter(s => s.imp >= 4 && (s.q || s.x))
+    if (!pool.length) return null
+    const s = pool[this.dayOfYear(new Date()) % pool.length], p = this.parse(s.d)
+    return { icon: this.storyIcon(s.ty), title: s.t, date: this.arShort(p) + ' · ' + this.agoLabel(p, new Date()), quote: s.q, desc: s.q ? '' : s.x }
+  }
   // في مثل هذا اليوم — ذكريات القصّة بنفس اليوم/الشهر + سجلّات الأشهر السابقة.
   onThisDay() {
     const today = new Date(), mm = today.getMonth(), dd = today.getDate(), out = []
@@ -1008,20 +1015,33 @@ export default class App extends React.Component {
   milestones() {
     const logs = this.data.logs || {}, keys = Object.keys(logs).sort()
     const firstWith = pred => { for (const k of keys) { if (pred(logs[k])) return k } return null }
-    const wed = this.parse('2026-05-29'), today = new Date()
+    const today = new Date(), todayISO = this.iso(today)
+    const emojiOf = s => { const t = (s.notif || '').trim().split(' ')[0]; return (t && !/[؀-ۿ\w]/.test(t[0])) ? t : this.storyIcon(s.ty) }
+    // محطات رحلتكم الحقيقية من أرشيفكم — كل محطة كبيرة بتاريخها
+    const seen = {}, journey = []
+    for (const s of STORY) {
+      if (!(s.imp >= 5 || s.ty === 'milestone')) continue
+      const k = s.d + '|' + s.t; if (seen[k]) continue; seen[k] = 1
+      journey.push({ icon: emojiOf(s), label: s.t, iso: s.d, done: s.d <= todayISO, when: this.arShort(this.parse(s.d)) })
+    }
+    // محطات من تسجيلكم داخل التطبيق
+    const app = [
+      { icon: '💞', label: 'أول لحظة مسجّلة في التطبيق', iso: firstWith(l => l && l.intimacy) },
+      { icon: '🧪', label: 'أول اختبار تبويض', iso: firstWith(l => l && l.ovTest) },
+      { icon: '💧', label: 'أول تسجيل إفرازات', iso: firstWith(l => l && l.mucus) },
+      { icon: '📷', label: 'أول صورة شريط', iso: firstWith(l => l && l.ovPhoto) },
+    ].filter(a => a.iso).map(a => ({ ...a, done: true, when: this.arShort(this.parse(a.iso)) }))
+    // محطات قادمة
+    const wed = this.parse('2026-05-29')
     const months = (today.getFullYear() - wed.getFullYear()) * 12 + (today.getMonth() - wed.getMonth()) - (today.getDate() < wed.getDate() ? 1 : 0)
-    const mk = (icon, label, iso) => ({ icon, label, done: !!iso, when: iso ? this.arShort(this.parse(iso)) : '' })
-    const out = [
-      mk('💞', 'أول لحظة مسجّلة', firstWith(l => l && l.intimacy)),
-      mk('🧪', 'أول اختبار تبويض', firstWith(l => l && l.ovTest)),
-      mk('📷', 'أول صورة شريط', firstWith(l => l && l.ovPhoto)),
-      mk('💧', 'أول تسجيل إفرازات', firstWith(l => l && l.mucus)),
-      { icon: '🏝️', label: 'أول رحلة (شهر العسل)', done: true, when: 'يونيو ٢٠٢٦' },
-      { icon: '💍', label: 'أول شهر زواج', done: months >= 1, when: months >= 1 ? '٢٩ يونيو' : '' },
-      { icon: '🎉', label: 'إتمام ٦ أشهر', done: months >= 6, when: months >= 6 ? 'تمّ' : '' },
-      { icon: '🎊', label: 'أول سنة زواج', done: months >= 12, when: months >= 12 ? 'تمّ' : '' },
+    const future = [
+      { icon: '🎉', label: 'إتمام ٦ أشهر زواج', iso: '2026-11-29', done: months >= 6, when: months >= 6 ? 'تمّ ✓' : '٢٩ نوفمبر ٢٠٢٦' },
+      { icon: '🎊', label: 'أول سنة زواج', iso: '2027-05-29', done: months >= 12, when: months >= 12 ? 'تمّ ✓' : '٢٩ مايو ٢٠٢٧' },
+      { icon: '👶', label: 'حلم أحمد وأمل', iso: '2099-01-01', done: false, when: 'حلمكما القادم' },
     ]
-    return out
+    const all = journey.concat(app, future)
+    all.sort((a, b) => a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : 0)
+    return all
   }
   // أيقونة نوع ذكرى القصة.
   storyIcon(ty) { return ({ milestone: '⭐', event: '📌', micro: '💬', funny: '😂', family: '👨‍👩‍👧', love: '❤️', achievement: '🏆', dream: '✨', travel: '✈️' })[ty] || '💜' }
@@ -1223,12 +1243,18 @@ export default class App extends React.Component {
     if (dSince === 0) periodAction = 'start'
     else if (dSince > 0 && dSince < Pp) periodAction = 'during'
     else if (dSince < 0 || dSince >= Math.round(Lc / 2)) periodAction = 'new'
+    // كل شيء في هذا اليوم: ذكريات القصّة (نفس اليوم/الشهر) + مناسبات + مواعيد.
+    const sm = d.getMonth(), sday = d.getDate()
+    const dayStory = STORY.filter(s => { const p = this.parse(s.d); return p.getMonth() === sm && p.getDate() === sday }).map(s => ({ icon: this.storyIcon(s.ty), t: s.t, q: s.q, ago: this.agoLabel(this.parse(s.d), new Date()) }))
+    const dayOcc = (this.data.occasions || []).filter(o => !o.deletedAt && (o.monthly ? o.day === sday : (o.month === sm + 1 && o.day === sday))).map(o => ({ icon: o.emoji || '🎉', t: o.label }))
+    const dayAppt = (this.data.appointments || []).filter(a => !a.deletedAt && a.date === si).map(a => ({ icon: '🩺', t: a.type + (a.note ? ' — ' + a.note : '') }))
+    const dayPhoto = e.ovPhoto || ''
     const sel = {
       dateLabel: this.arLong(d), isToday: si === today, phaseLabel: lab[phk], phasePill: 'pill ' + pm[phk], summary,
       isPeriodStart, periodAction, markPeriod: () => this.confirmPeriod(si),
       endHere: () => this.endPeriod(si),
       intiCls: 'bigtog' + (e.intimacy ? ' on' : ''), intiTxt: e.intimacy ? 'نعم' : 'لا', toggleInti: () => this.patchDay(si, { intimacy: !e.intimacy }),
-      ovActs, pregActs,
+      ovActs, pregActs, dayStory, dayOcc, dayAppt, dayPhoto,
       editDay: () => { this.hap(); this.setState({ logISO: si, screen: 'log', saved: false }) },
     }
     return {
@@ -1486,6 +1512,7 @@ export default class App extends React.Component {
     const assist = this.dailyAssist()
     const otd = this.onThisDay()
     const night = riyadhNowMin() >= 1140 ? this.nightSummary() : null
+    const mem = this.memoryOfDay()
     // هيرو الذكرى: يظهر يوم الذكرى الشهرية وقبلها بيوم
     const wedm = (this.data.occasions || []).find(o => o.id === 'wedm' && !o.deletedAt)
     let anniv = null
@@ -1585,6 +1612,15 @@ export default class App extends React.Component {
               </div>
             ))}
           </div>
+        )}
+
+        {mem && (
+          <button className="card memcard" onClick={() => this.go('lovestory')}>
+            <div className="ttl" style={{ margin: 0 }}>💜 من ذكرياتنا</div>
+            <div className="memrow"><span className="meme">{mem.icon}</span><div><div className="memt">{mem.title}</div><div className="memd">{mem.date}</div></div></div>
+            {mem.quote ? <div className="memq">«{mem.quote}»</div> : <div className="memx">{mem.desc}</div>}
+            <div className="memlink">قصّة حبنا كاملة ‹</div>
+          </button>
         )}
 
         {/* شهر العسل — مدخل سريع */}
@@ -1788,6 +1824,29 @@ export default class App extends React.Component {
           {this.state.dayOpen && (
             <div style={{ animation: 'pop .25s', marginTop: 12 }}>
               <p className="selsum">{v.sel.summary}</p>
+              {(v.sel.dayStory.length > 0 || v.sel.dayOcc.length > 0 || v.sel.dayAppt.length > 0 || v.sel.dayPhoto) && (
+                <div className="dayall">
+                  <div className="dayall-hd">✨ كل شيء في هذا اليوم</div>
+                  {v.sel.dayOcc.map((o, i) => (
+                    <div className="dayall-row occ" key={'o' + i}><span className="dayall-ic">{o.icon}</span><span className="dayall-t">{o.t}</span></div>
+                  ))}
+                  {v.sel.dayStory.map((s, i) => (
+                    <div className="dayall-row story" key={'s' + i}>
+                      <span className="dayall-ic">{s.icon}</span>
+                      <div className="dayall-body">
+                        <div className="dayall-t">{s.t} <span className="dayall-ago">· {s.ago}</span></div>
+                        {s.q ? <div className="dayall-q">«{s.q}»</div> : null}
+                      </div>
+                    </div>
+                  ))}
+                  {v.sel.dayAppt.map((a, i) => (
+                    <div className="dayall-row appt" key={'a' + i}><span className="dayall-ic">{a.icon}</span><span className="dayall-t">{a.t}</span></div>
+                  ))}
+                  {v.sel.dayPhoto ? (
+                    <img className="dayall-photo" src={v.sel.dayPhoto} alt="صورة اليوم" onClick={() => this.setState({ imgView: v.sel.dayPhoto })} />
+                  ) : null}
+                </div>
+              )}
               {v.sel.periodAction === 'start' && (
                 <button className="bigtog on" onClick={v.sel.markPeriod} style={{ marginBottom: 13 }}>🩸 يوم بدء دورتكِ<span className="yn">✓</span></button>
               )}
@@ -2235,8 +2294,8 @@ export default class App extends React.Component {
           <div className="mstones">
             {this.milestones().map((m, i) => (
               <div key={i} className={'mstone' + (m.done ? ' done' : '')}>
-                <span className="mse">{m.done ? m.icon : '🔒'}</span>
-                <div><div className="mst">{m.label}</div><div className="msx">{m.done ? m.when : 'قريبًا'}</div></div>
+                <span className="mse">{m.done ? m.icon : (m.icon || '🔒')}</span>
+                <div><div className="mst">{m.label}</div><div className="msx">{m.when || 'قريبًا'}</div></div>
               </div>
             ))}
           </div>
