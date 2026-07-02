@@ -639,3 +639,18 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .tlrow.story .tldot{background:#caa46a;box-shadow:0 0 0 3px rgba(202,164,106,.22)}
 .tlrow.story .tlcard{background:linear-gradient(150deg,rgba(202,164,106,.10),var(--card))}
 .tlrow.story .tldate{color:#a9803f}
+
+/* قصّة حبنا — صفحة سردية */
+.lshero{text-align:center;background:linear-gradient(160deg,#2a1420,#3a1f2e);color:#f3e7ee;box-shadow:var(--shadow-lg)}
+.lshero .lse{font-size:38px}
+.lshero .lst{font-family:'Reem Kufi';font-size:22px;font-weight:700;margin-top:6px}
+.lshero .lss{font-size:13px;color:#e2c2d0;margin-top:5px;line-height:1.8}
+.lschapwrap{margin-bottom:6px}
+.lschap{display:flex;align-items:baseline;gap:10px;margin:20px 2px 12px;padding-bottom:8px;border-bottom:2px solid var(--rose-s)}
+.lschap .lschm{font-family:'Reem Kufi';font-size:20px;font-weight:700;color:var(--rose-d)}
+.lschap .lschs{font-size:12.5px;color:#a9803f;font-weight:700}
+.lsmem{position:relative;background:var(--card);border-radius:16px;box-shadow:var(--shadow-s);padding:14px 16px;margin-bottom:11px;border-right:3px solid var(--rose-s)}
+.lsmem .lsdate{font-size:11.5px;color:var(--rose-d);font-weight:700}
+.lsmem .lstitle{font-size:15px;font-weight:800;color:var(--ink);margin-top:3px;line-height:1.6}
+.lsmem .lsdesc{font-size:13px;color:var(--ink2);line-height:1.9;margin:6px 0 0}
+.lsmem .lsquote{margin-top:9px;background:var(--rose-s);color:var(--rose-d);border-radius:11px;padding:8px 12px;font-size:13.5px;font-weight:700;line-height:1.8}

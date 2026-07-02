@@ -100,7 +100,7 @@ export default class App extends React.Component {
       occLabel: '', occDateV: '', apType: '', apDate: '', apNote: '',
       sheet: false,
       dayOpen: false,
-      salTab: 'times', salAdj: false, dhText: '', dhCount: '',
+      salTab: 'times', salAdj: false, dhText: '', dhCount: '', storyHi: false,
       hmOpen: false, hmFilter: 'all', bookPage: 0, bookToc: false, hmPhoto: null, bookLang: 'ar', imgView: null,
       locked: false, pinInput: '',
       obStep: 0,
@@ -1069,6 +1069,43 @@ export default class App extends React.Component {
       </div>
     )
   }
+  renderLoveStory(g) {
+    const only = this.state.storyHi
+    const list = STORY.filter(s => !only || s.imp >= 4)
+    const groups = []; let cur = null
+    for (const s of list) { const ym = s.d.slice(0, 7); if (!cur || cur.ym !== ym) { cur = { ym, items: [] }; groups.push(cur) } cur.items.push(s) }
+    const sub = { '2025-12': 'البداية', '2026-01': 'شهر الموافقة', '2026-02': 'رمضان والعقد', '2026-03': 'الملكة', '2026-04': 'التجهيز للعرس', '2026-05': 'العدّ التنازلي', '2026-06': 'شهر العسل' }
+    return (
+      <div className="screen">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">من أول رسالة إلى اليوم</div><h1 className="nm">قصّة حبنا 💜</h1></div><button className="tbtn" onClick={() => this.go('us')}>‹</button></div>
+        <div className="card lshero">
+          <div className="lse">💌</div>
+          <div className="lst">عبدالرحمن & رويدة</div>
+          <div className="lss">حكايتنا يومًا بيوم — من «متى تنامين» إلى «قمري» 💜</div>
+        </div>
+        <div className="seg" style={{ marginBottom: 14 }}>
+          <button className={'segb' + (!only ? ' on' : '')} onClick={() => this.setState({ storyHi: false })}>القصّة كاملة</button>
+          <button className={'segb' + (only ? ' on' : '')} onClick={() => this.setState({ storyHi: true })}>الأبرز فقط ⭐</button>
+        </div>
+        {groups.map(gp => {
+          const p = gp.ym.split('-').map(Number)
+          return (
+            <div key={gp.ym} className="lschapwrap">
+              <div className="lschap"><span className="lschm">{this.arMonth(p[0], p[1] - 1)}</span>{sub[gp.ym] && <span className="lschs">{sub[gp.ym]}</span>}</div>
+              {gp.items.map((s, i) => (
+                <div key={i} className="lsmem">
+                  <div className="lsdate">{this.arShort(this.parse(s.d))}{s.anv ? ' ⭐' : ''}{s.est ? ' · تقديري' : ''}</div>
+                  <div className="lstitle">{this.storyIcon(s.ty)} {s.t}</div>
+                  {s.x && <p className="lsdesc">{s.x}</p>}
+                  {s.q && <div className="lsquote">«{s.q}»</div>}
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
   // إحصائيات قصّتنا (نحن) — أرقام متحرّكة.
   ourStory() {
     const today = new Date(), wed = this.parse('2026-05-29')
@@ -1400,6 +1437,7 @@ export default class App extends React.Component {
             {this.state.screen === 'book' && this.renderBook(g)}
             {this.state.screen === 'lhplan' && this.renderLhPlan(g)}
             {this.state.screen === 'timeline' && this.renderTimeline(g)}
+            {this.state.screen === 'lovestory' && this.renderLoveStory(g)}
           </div>
           {g.showNav && (
             <div className="nav">
@@ -2204,6 +2242,7 @@ export default class App extends React.Component {
           </div>
         </div>
 
+        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('lovestory')}>💜 قصّة حبنا — بفصول شهرية<span className="yn">›</span></button>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('timeline')}>🕰️ الخط الزمني — كل لحظاتكم<span className="yn">›</span></button>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('letter')}>💌 رسالتنا — إلى رويدا من عبدالرحمن<span className="yn">›</span></button>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('honeymoon')}>🏝️ شهر العسل — ذكرياتنا الأولى<span className="yn">›</span></button>
