@@ -577,3 +577,53 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .storycell .stye{font-size:20px}
 .storycell .styv{font-size:22px;font-weight:800;font-family:'Reem Kufi';color:var(--rose-d);line-height:1.1;margin-top:3px}
 .storycell .styl{font-size:11px;color:var(--ink2);margin-top:2px}
+
+/* الخط الزمني الموحّد */
+.tline{position:relative;padding-right:14px;border-right:2px solid var(--line);margin:6px 4px}
+.tlrow{position:relative;margin-bottom:12px}
+.tldot{position:absolute;right:-21px;top:16px;width:11px;height:11px;border-radius:50%;background:var(--rose);box-shadow:0 0 0 3px var(--rose-s)}
+.tlrow.today .tldot{background:var(--fertile);box-shadow:0 0 0 3px var(--fertile-s)}
+.tlcard{background:var(--card);border-radius:16px;box-shadow:var(--shadow-s);padding:12px 14px}
+.tldate{font-size:11.5px;color:var(--rose-d);font-weight:700}
+.tltext{font-size:13.5px;color:var(--ink);line-height:1.85;margin-top:3px}
+.tlimg{width:64px;height:64px;object-fit:cover;border-radius:10px;margin-top:9px;cursor:pointer}
+
+/* محطات الرحلة */
+.mstones{display:flex;flex-direction:column;gap:9px}
+.mstone{display:flex;align-items:center;gap:11px;opacity:.5}
+.mstone.done{opacity:1}
+.mstone .mse{font-size:22px;width:30px;text-align:center}
+.mstone .mst{font-size:13.5px;font-weight:700}
+.mstone .msx{font-size:11.5px;color:var(--ink2)}
+.mstone.done .msx{color:var(--fertile)}
+
+/* خريطة النشاط (Heatmap) */
+.heat{display:grid;grid-template-columns:repeat(14,1fr);gap:4px}
+.heat .hcell,.heatleg .hcell{aspect-ratio:1/1;border-radius:4px;background:var(--track)}
+.heatleg{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:var(--ink2)}
+.heatleg .hcell{width:13px;height:13px;aspect-ratio:auto}
+.hcell.h0{background:var(--track)}
+.hcell.h1{background:var(--rose-s)}
+.hcell.h2{background:#f0aec1}
+.hcell.h3{background:var(--rose)}
+.hcell.h4{background:var(--rose-d)}
+.app.dark .hcell.h2{background:#7a3a4e}
+
+/* الوضع الليلي الرومانسي */
+.app.dark{--bg:#160e14;--bg2:#1d1420;--card:#201621;--rose-d:#F3A0B6;--gold:#d9b56a}
+.app.dark .phone{background:radial-gradient(120% 80% at 50% 0%,#241320,#140d13 60%)}
+.app.dark .amb i:nth-child(1){background:#4a2138;opacity:.55}
+.app.dark .amb i:nth-child(2){background:#3a2a18;opacity:.4}
+.app.dark .status h2,.app.dark .hd .nm{text-shadow:0 1px 12px rgba(240,143,168,.25)}
+
+/* خلفية تتغيّر حسب المرحلة (خفيفة) */
+.phone.pf-fertile{background:linear-gradient(180deg,rgba(63,174,146,.07),var(--bg) 34%)}
+.phone.pf-ovu{background:linear-gradient(180deg,rgba(215,154,54,.09),var(--bg) 34%)}
+.phone.pf-period{background:linear-gradient(180deg,rgba(224,105,138,.08),var(--bg) 34%)}
+.phone.pf-preg{background:linear-gradient(180deg,rgba(217,181,106,.12),var(--bg) 36%)}
+.phone.pf-anniv{background:linear-gradient(180deg,rgba(224,105,138,.14),rgba(217,181,106,.06) 30%,var(--bg) 55%)}
+.app.dark .phone.pf-fertile{background:radial-gradient(120% 80% at 50% 0%,#12281f,#140d13 55%)}
+.app.dark .phone.pf-ovu{background:radial-gradient(120% 80% at 50% 0%,#2a2110,#140d13 55%)}
+.app.dark .phone.pf-period{background:radial-gradient(120% 80% at 50% 0%,#2a1320,#140d13 55%)}
+.app.dark .phone.pf-preg{background:radial-gradient(120% 80% at 50% 0%,#2a2312,#140d13 55%)}
+.app.dark .phone.pf-anniv{background:radial-gradient(120% 80% at 50% 0%,#2e1526,#140d13 55%)}

@@ -981,6 +981,67 @@ export default class App extends React.Component {
     }
     return out.slice(0, 3)
   }
+  // محطات الرحلة (إنجازات) — أول مرة لكل شيء.
+  milestones() {
+    const logs = this.data.logs || {}, keys = Object.keys(logs).sort()
+    const firstWith = pred => { for (const k of keys) { if (pred(logs[k])) return k } return null }
+    const wed = this.parse('2026-05-29'), today = new Date()
+    const months = (today.getFullYear() - wed.getFullYear()) * 12 + (today.getMonth() - wed.getMonth()) - (today.getDate() < wed.getDate() ? 1 : 0)
+    const mk = (icon, label, iso) => ({ icon, label, done: !!iso, when: iso ? this.arShort(this.parse(iso)) : '' })
+    const out = [
+      mk('💞', 'أول لحظة مسجّلة', firstWith(l => l && l.intimacy)),
+      mk('🧪', 'أول اختبار تبويض', firstWith(l => l && l.ovTest)),
+      mk('📷', 'أول صورة شريط', firstWith(l => l && l.ovPhoto)),
+      mk('💧', 'أول تسجيل إفرازات', firstWith(l => l && l.mucus)),
+      { icon: '🏝️', label: 'أول رحلة (شهر العسل)', done: true, when: 'يونيو ٢٠٢٦' },
+      { icon: '💍', label: 'أول شهر زواج', done: months >= 1, when: months >= 1 ? '٢٩ يونيو' : '' },
+      { icon: '🎉', label: 'إتمام ٦ أشهر', done: months >= 6, when: months >= 6 ? 'تمّ' : '' },
+      { icon: '🎊', label: 'أول سنة زواج', done: months >= 12, when: months >= 12 ? 'تمّ' : '' },
+    ]
+    return out
+  }
+  // خط زمني موحّد يجمع كل الأحداث (الأحدث أولًا).
+  timelineItems() {
+    const items = [], logs = this.data.logs || {}
+    for (const iso in logs) {
+      const l = logs[iso]; if (!l) continue
+      const ev = []
+      if (l.flow) ev.push('🩸 ' + l.flow)
+      if (l.intimacy) ev.push('💞 لحظة قرب')
+      if (l.ovTest) ev.push('🧪 تبويض: ' + l.ovTest)
+      if (l.pregTest) ev.push('🤍 حمل: ' + l.pregTest)
+      if (l.mucus) ev.push('💧 ' + l.mucus)
+      if (l.mood) ev.push(l.mood)
+      if (l.symptoms && l.symptoms.length) ev.push('✨ ' + l.symptoms.join('، '))
+      if (l.note) ev.push('📝 ' + l.note)
+      if (ev.length || l.ovPhoto) items.push({ iso, sort: iso, date: this.arLong(this.parse(iso)), text: ev.join('  ·  '), photo: l.ovPhoto || '' })
+    }
+    for (const a of (this.data.appointments || [])) { if (a.deletedAt) continue; items.push({ iso: a.date, sort: a.date, date: this.arLong(this.parse(a.date)), text: '🩺 ' + a.type + (a.note ? ' — ' + a.note : ''), photo: '' }) }
+    items.sort((x, y) => x.sort < y.sort ? 1 : x.sort > y.sort ? -1 : 0)
+    return items
+  }
+  renderTimeline(g) {
+    const items = this.timelineItems(), todayISO = this.iso(new Date())
+    return (
+      <div className="screen stagger">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">كل لحظاتكم في مكان واحد</div><h1 className="nm">الخط الزمني 🕰️</h1></div><button className="tbtn" onClick={() => this.go('us')}>‹</button></div>
+        {items.length === 0
+          ? <div className="card"><p className="selsum" style={{ margin: 0 }}>ابدؤوا التسجيل وستظهر لحظاتكم هنا تباعًا 🤍</p></div>
+          : <div className="tline">
+              {items.map((it, i) => (
+                <div key={i} className={'tlrow' + (it.iso === todayISO ? ' today' : '')}>
+                  <div className="tldot"></div>
+                  <div className="tlcard">
+                    <div className="tldate">{it.iso === todayISO ? 'اليوم · ' : ''}{it.date}</div>
+                    <div className="tltext">{it.text}</div>
+                    {it.photo && <img className="tlimg" src={it.photo} alt="" onClick={() => this.setState({ imgView: it.photo })} />}
+                  </div>
+                </div>
+              ))}
+            </div>}
+      </div>
+    )
+  }
   // إحصائيات قصّتنا (نحن) — أرقام متحرّكة.
   ourStory() {
     const today = new Date(), wed = this.parse('2026-05-29')
@@ -1000,8 +1061,15 @@ export default class App extends React.Component {
   rvGlobal() {
     const sc = this.state.screen, dark = this.data.settings.theme === 'dark'
     const nc = k => 'nav ' + (sc === k ? 'on' : '')
+    let pbg = 'pf-normal'
+    try {
+      const wedm = (this.data.occasions || []).find(o => o.id === 'wedm' && !o.deletedAt)
+      if (wedm && Math.abs(this.diff(this.occDate(wedm), new Date())) <= 0) pbg = 'pf-anniv'
+      else if (this.pregActive()) pbg = 'pf-preg'
+      else pbg = 'pf-' + this.phaseOf(new Date())
+    } catch (e) {}
     return {
-      themeClass: dark ? 'dark' : '', isSplash: sc === 'splash', showNav: sc !== 'splash',
+      themeClass: dark ? 'dark' : '', phaseBg: pbg, isSplash: sc === 'splash', showNav: sc !== 'splash',
       isHome: sc === 'home', isCal: sc === 'calendar', isLog: sc === 'log', isStats: sc === 'stats', isSet: sc === 'settings',
       navHomeCls: nc('home'), navCalCls: nc('calendar'), navUsCls: nc('us'), navMoreCls: nc('more'),
       dismissSplash: () => this.setState({ screen: 'home' }),
@@ -1220,7 +1288,7 @@ export default class App extends React.Component {
     if (this.state.obStep > 0) return this.renderOnboarding(g)
     return (
       <div className={('app ' + g.themeClass).trim()}>
-        <div className="phone">
+        <div className={'phone ' + g.phaseBg}>
           <div className="amb"><i></i><i></i></div>
           {this.state.sheet && this.renderSheet(g)}
           {g.isSplash && (
@@ -1303,6 +1371,7 @@ export default class App extends React.Component {
             {this.state.screen === 'honeymoon' && this.renderHoneymoon(g)}
             {this.state.screen === 'book' && this.renderBook(g)}
             {this.state.screen === 'lhplan' && this.renderLhPlan(g)}
+            {this.state.screen === 'timeline' && this.renderTimeline(g)}
           </div>
           {g.showNav && (
             <div className="nav">
@@ -1736,6 +1805,13 @@ export default class App extends React.Component {
           <div className="mc"><div className="mv">{v.cyclesCount}</div><div className="ml">دورات مسجّلة</div></div>
         </div>
         <div className="card">
+          <div className="ttl">🔥 خريطة النشاط — آخر ١٠ أسابيع</div>
+          <div className="heat">
+            {(() => { const cells = []; for (let i = 69; i >= 0; i--) { const d = this.addDays(new Date(), -i), l = this.data.logs[this.iso(d)] || {}; let n = 0; if (l.ovTest) n++; if (l.mood) n++; if (l.mucus) n++; if (l.pregTest) n++; if (l.symptoms && l.symptoms.length) n++; if (l.note) n++; const lvl = l.intimacy ? 4 : Math.min(3, n); cells.push(<span key={i} className={'hcell h' + lvl} title={this.arShort(d)}></span>) } return cells })()}
+          </div>
+          <div className="heatleg"><span>أقل</span><i className="hcell h0"></i><i className="hcell h1"></i><i className="hcell h2"></i><i className="hcell h3"></i><span>أكثر</span><i className="hcell h4"></i><span>💞 قرب</span></div>
+        </div>
+        <div className="card">
           <div className="ttl">أطوال الدورات السابقة</div>
           <div className="bars">
             {v.cycleBars.map(b => (
@@ -2079,6 +2155,19 @@ export default class App extends React.Component {
           </div>
         </div>
 
+        <div className="card">
+          <div className="ttl">🏅 محطات رحلتكم</div>
+          <div className="mstones">
+            {this.milestones().map((m, i) => (
+              <div key={i} className={'mstone' + (m.done ? ' done' : '')}>
+                <span className="mse">{m.done ? m.icon : '🔒'}</span>
+                <div><div className="mst">{m.label}</div><div className="msx">{m.done ? m.when : 'قريبًا'}</div></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('timeline')}>🕰️ الخط الزمني — كل لحظاتكم<span className="yn">›</span></button>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('letter')}>💌 رسالتنا — إلى رويدا من عبدالرحمن<span className="yn">›</span></button>
         <button className="bigtog" style={{ marginBottom: 12 }} onClick={() => this.go('honeymoon')}>🏝️ شهر العسل — ذكرياتنا الأولى<span className="yn">›</span></button>
         <button className="qbtn" style={{ marginBottom: 16, fontSize: 16, padding: 18 }} onClick={() => this.nudgePartner()}>💗 نبضة شوق{partnerName ? ' لـ ' + partnerName : ''}</button>
