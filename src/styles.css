@@ -1,8 +1,8 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;background:#100b13}
 #root{min-height:100vh;min-height:100dvh}
-.app{direction:rtl;font-family:'IBM Plex Sans Arabic',sans-serif;color:var(--ink);min-height:100vh;min-height:100dvh;width:100%;display:flex;justify-content:center;--bg:#F6EEE9;--bg2:#fff;--ink:#2B1F27;--ink2:#806B75;--line:#EEE0D9;--card:#fff;--rose:#E0698A;--rose-d:#C24E72;--rose-s:#FBE3EA;--fertile:#3FAE92;--fertile-s:#DCF0EA;--ovu:#D79A36;--ovu-s:#F7ECD4;--pred:#CDBDC6;--track:#EFE4DE;--shadow:0 1px 2px rgba(150,70,95,.06),0 6px 16px rgba(150,70,95,.08),0 18px 44px rgba(150,70,95,.10);--shadow-s:0 1px 2px rgba(150,70,95,.05),0 4px 12px rgba(150,70,95,.07);--shadow-lg:0 24px 60px rgba(150,70,95,.18);--grad:linear-gradient(140deg,#E0698A,#C24E72);--sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;--r-sm:12px;--r-md:16px;--r-lg:20px;--r-xl:24px;--r-2xl:28px;--r-pill:999px;--ease-spring:cubic-bezier(.34,1.4,.6,1);--ease-out:cubic-bezier(.22,1,.36,1);--dur-1:.2s;--dur-2:.35s;--dur-3:.5s}
-.app.dark{--bg:#15101A;--bg2:#1E1722;--ink:#F4EAF0;--ink2:#A892A0;--line:#322637;--card:#1F1726;--rose:#EC7A99;--rose-d:#F08FA8;--rose-s:#3A2330;--fertile:#4BC2A4;--fertile-s:#17302A;--ovu:#E6B254;--ovu-s:#33290F;--pred:#5A4A56;--track:#2B2030;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px rgba(0,0,0,.45),0 20px 48px rgba(0,0,0,.5);--shadow-s:0 1px 3px rgba(0,0,0,.4),0 5px 16px rgba(0,0,0,.4);--shadow-lg:0 26px 64px rgba(0,0,0,.62);--grad:linear-gradient(140deg,#EC7A99,#C24E72)}
+.app{direction:rtl;font-family:'IBM Plex Sans Arabic',sans-serif;color:var(--ink);min-height:100vh;min-height:100dvh;width:100%;display:flex;justify-content:center;--bg:#F7F3F1;--bg2:#fff;--ink:#291F33;--ink2:#7B6A86;--line:#EBE3EF;--card:#fff;--rose:#9A6BB4;--rose-d:#7A4B99;--rose-s:#F1E9F7;--fertile:#3DA98E;--fertile-s:#DEF0EA;--ovu:#C6982E;--ovu-s:#F6ECD6;--pred:#C6BACE;--track:#EDE6F0;--shadow:0 1px 2px rgba(90,55,115,.06),0 6px 16px rgba(90,55,115,.08),0 18px 44px rgba(90,55,115,.11);--shadow-s:0 1px 2px rgba(90,55,115,.05),0 4px 12px rgba(90,55,115,.07);--shadow-lg:0 24px 60px rgba(90,55,115,.20);--grad:linear-gradient(140deg,#9A6BB4,#7A4B99);--sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;--r-sm:12px;--r-md:16px;--r-lg:20px;--r-xl:24px;--r-2xl:28px;--r-pill:999px;--ease-spring:cubic-bezier(.34,1.4,.6,1);--ease-out:cubic-bezier(.22,1,.36,1);--dur-1:.2s;--dur-2:.35s;--dur-3:.5s}
+.app.dark{--bg:#16101E;--bg2:#201827;--ink:#F2EAF6;--ink2:#A897B2;--line:#332740;--card:#211829;--rose:#C79AE0;--rose-d:#D6ABEC;--rose-s:#3A2647;--fertile:#4BC2A4;--fertile-s:#17302A;--ovu:#E7C368;--ovu-s:#332812;--pred:#5C4A64;--track:#2C2136;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 22px rgba(0,0,0,.45),0 20px 48px rgba(0,0,0,.5);--shadow-s:0 1px 3px rgba(0,0,0,.4),0 5px 16px rgba(0,0,0,.4);--shadow-lg:0 26px 64px rgba(0,0,0,.62);--grad:linear-gradient(140deg,#BA80D6,#8A5AA8)}
 .phone{position:relative;width:100%;max-width:452px;min-height:100vh;min-height:100dvh;background:var(--bg);overflow:hidden;display:flex;flex-direction:column;transition:background .5s}
 @media(min-width:520px){.phone{min-height:auto;height:920px;margin:auto;border-radius:42px;box-shadow:0 40px 90px rgba(0,0,0,.5),0 0 0 11px #0c080e,0 0 0 13px #241a26}.app{align-items:center;padding:26px 0;background:radial-gradient(120% 90% at 50% 0%,#241a26,#0d0a10)}}
 .amb{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
@@ -22,7 +22,7 @@ html,body{margin:0;padding:0;background:#100b13}
 .nav button.on{color:var(--rose-d)}
 .nav button.on .ic{transform:translateY(-1px) scale(1.06)}
 .nav .add{margin-top:-22px}
-.nav .add .ic{width:54px;height:54px;border-radius:18px;background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(194,78,114,.45);font-size:27px;font-weight:300}
+.nav .add .ic{width:54px;height:54px;border-radius:18px;background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(122,75,153,.45);font-size:27px;font-weight:300}
 .nav .add:active .ic{transform:scale(.92)}
 .splash{position:absolute;inset:0;z-index:30;background:var(--grad);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;cursor:pointer}
 .splash.out{animation:fade .5s reverse forwards;pointer-events:none}
@@ -67,7 +67,7 @@ html,body{margin:0;padding:0;background:#100b13}
 .irow .it{font-size:12px;color:var(--ink2);font-weight:500}
 .irow .iv{font-size:14.5px;font-weight:700;margin-top:1px}
 .bf{background:var(--fertile-s)}.bo{background:var(--ovu-s)}.bp{background:var(--rose-s)}
-.qbtn{width:100%;border:none;cursor:pointer;font-family:inherit;background:var(--grad);color:#fff;border-radius:18px;padding:16px;font-size:15px;font-weight:700;box-shadow:0 8px 20px rgba(194,78,114,.35);transition:transform .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.qbtn{width:100%;border:none;cursor:pointer;font-family:inherit;background:var(--grad);color:#fff;border-radius:18px;padding:16px;font-size:15px;font-weight:700;box-shadow:0 8px 20px rgba(122,75,153,.35);transition:transform .15s;display:flex;align-items:center;justify-content:center;gap:8px}
 .qbtn{transition:transform var(--dur-1) var(--ease-spring),box-shadow var(--dur-1) var(--ease-out)}
 .qbtn:active{transform:scale(.96)}
 .calhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
@@ -238,7 +238,7 @@ html,body{margin:0;padding:0;background:#100b13}
 .seg{display:flex;gap:6px;background:var(--track);padding:5px;border-radius:16px}
 .segb{flex:1;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--ink2);background:none;padding:10px 6px;border-radius:12px;transition:all .15s}
 .segb.on{background:var(--card);color:var(--rose-d);box-shadow:var(--shadow-s)}
-.prayhero{text-align:center;background:var(--grad);color:#fff;box-shadow:0 10px 28px rgba(194,78,114,.35)}
+.prayhero{text-align:center;background:var(--grad);color:#fff;box-shadow:0 10px 28px rgba(122,75,153,.35)}
 .prayhero .hi{color:rgba(255,255,255,.85)}
 .prayhero .prayname{font-family:'Reem Kufi';font-size:30px;font-weight:700;margin:6px 0 2px}
 .prayhero .praytime{font-size:22px;font-weight:700}
