@@ -1,0 +1,12 @@
+{
+  "appId": "sa.farq.rweida",
+  "appName": "Rweida",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#F7F3F1"
+  },
+  "server": {
+    "iosScheme": "capacitor"
+  }
+}
