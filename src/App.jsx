@@ -1520,6 +1520,7 @@ export default class App extends React.Component {
             {this.state.screen === 'lhplan' && this.renderLhPlan(g)}
             {this.state.screen === 'timeline' && this.renderTimeline(g)}
             {this.state.screen === 'lovestory' && this.renderLoveStory(g)}
+            {this.state.screen === 'privacy' && this.renderPrivacy(g)}
           </div>
           {g.showNav && (
             <div className="nav">
@@ -2146,6 +2147,11 @@ export default class App extends React.Component {
             </>
           )}
         </div>
+        <div className="card">
+          <div className="ttl">🛡️ الخصوصية والقانوني</div>
+          <button className="navrow" onClick={() => this.go('privacy')}><span className="nre">🔏</span><span className="nrm"><span className="nrt">سياسة الخصوصية</span><span className="nrx">كيف نحفظ بياناتكم ونحميها</span></span><span className="nra">›</span></button>
+          <button className="navrow" onClick={() => this.go('privacy')}><span className="nre">⚕️</span><span className="nrm"><span className="nrt">إخلاء المسؤولية الطبّي</span><span className="nrx">التطبيق للمساعدة لا للتشخيص</span></span><span className="nra">›</span></button>
+        </div>
         <div className="note">🔒 <div>البيانات مشتركة بين كل من يملك رابط التطبيق، ومحفوظة في قاعدة بيانات آمنة. هذا التطبيق لا يُغني عن استشارة الطبيب المختص.</div></div>
         <button className="danger" onClick={v.openReset}>حذف البيانات…</button>
       </div>
@@ -2189,6 +2195,38 @@ export default class App extends React.Component {
         </div>
 
         <button className="qbtn" onClick={() => this.go('report')}>📄 تقرير شهري للطبيب</button>
+      </div>
+    )
+  }
+
+  renderPrivacy(g) {
+    return (
+      <div className="screen stagger">
+        <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">خصوصيتكم وسلامتكم أولًا</div><h1 className="nm">الخصوصية والقانوني 🛡️</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('settings')}><Icon name="chevron-right" /></button></div>
+
+        <div className="card">
+          <div className="alert" style={{ background: 'var(--ovu-s)', marginBottom: 0 }}><div className="ae">⚕️</div><div><div className="at">إخلاء مسؤولية طبّي</div><div className="ax">هذا التطبيق أداة مساعدة للتتبّع الشخصي، وليس جهازًا طبّيًا. تقديرات التبويض ونافذة الخصوبة ونِسَب الفرصة تقريبية تعتمد على ما تُدخلونه، ولا تُغني عن التشخيص أو الاستشارة الطبّية. راجعوا طبيب النساء والتخصيب لأي قرار صحّي.</div></div></div>
+        </div>
+
+        <div className="card">
+          <div className="ttl">🔏 سياسة الخصوصية</div>
+          <p className="selsum" style={{ lineHeight: 2 }}>
+            <b>ما نجمعه:</b> بيانات الدورة والتبويض والإفرازات والحرارة والجماع والمزاج والأعراض والملاحظات وصور الشرائط والصور والرسائل التي تُدخلونها بأنفسكم.<br />
+            <b>أين تُحفظ:</b> على جهازكم، وتُزامَن في قاعدة بيانات سحابية خاصة (Supabase) تحت مفتاح سرّي واحد يخصّكما — بلا حسابات عامة ولا تسجيل دخول.<br />
+            <b>لمن تُشارَك:</b> <b>لا أحد.</b> لا إعلانات، ولا محلّلات طرف ثالث، ولا بيع أو مشاركة بيانات. تُستخدم فقط لتشغيل مزايا التطبيق لكما.<br />
+            <b>بيانات حسّاسة:</b> بيانات الخصوبة والصحّة الإنجابية تُعامَل كبيانات حسّاسة ولا تُستخدم لأي غرض إعلاني إطلاقًا.<br />
+            <b>الإشعارات:</b> لتذكيرات الصلاة والدورة ورسائلكما فقط.<br />
+            <b>حقوقكم:</b> تقدرون حذف <b>كل</b> بياناتكم نهائيًا في أي وقت من «الإعدادات ← حذف البيانات» (من هذا الجهاز، أو من كل الأجهزة والسحابة).<br />
+            <b>التواصل:</b> abdulrhman@farq.sa
+          </p>
+          <p className="selsum" style={{ margin: '10px 2px 0', fontSize: 11.5 }}>آخر تحديث: ٧ يوليو ٢٠٢٦</p>
+        </div>
+
+        <div className="card">
+          <div className="ttl">🗑️ حذف بياناتكم</div>
+          <p className="selsum" style={{ margin: '0 0 12px' }}>يمكنكم حذف جميع بياناتكم نهائيًا في أي وقت — من هذا الجهاز فقط، أو من كل الأجهزة والسحابة معًا.</p>
+          <button className="qbtn" onClick={() => this.go('settings')}>الذهاب إلى حذف البيانات ‹</button>
+        </div>
       </div>
     )
   }
