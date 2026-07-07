@@ -29,7 +29,10 @@ createRoot(document.getElementById('root')).render(
 )
 
 // Register the service worker for offline / installable PWA support.
-if ('serviceWorker' in navigator) {
+// Skip inside the native iOS/Capacitor shell: assets are already served
+// natively there, and a network-first SW can cause reload loops.
+const isNativeApp = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform())
+if (!isNativeApp && 'serviceWorker' in navigator) {
   // When an updated service worker takes control, reload once so the freshest
   // build is shown immediately (guarded against reload loops).
   let refreshing = false
