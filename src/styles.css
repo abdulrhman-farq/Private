@@ -692,3 +692,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .qtile:active{transform:scale(.93)}
 .qtile .qte{font-size:22px;line-height:1}
 .qtile .qtl{font-size:11px;font-weight:700;color:var(--ink);text-align:center;line-height:1.3}
+
+/* floating undo pill */
+.undopill{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:41;display:flex;align-items:center;gap:10px;background:var(--ink);color:#fff;padding:9px 10px 9px 16px;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.32);animation:pop .3s;max-width:90%}
+.undopill .upi{font-size:12.5px;font-weight:700;white-space:nowrap}
+.undopill .upu{background:var(--grad);color:#fff;border:none;border-radius:16px;padding:7px 13px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+.undopill .upu:active{transform:scale(.94)}
+.undopill .upx{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer;flex:none;line-height:1}

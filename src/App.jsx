@@ -255,6 +255,7 @@ export default class App extends React.Component {
   pushInbox(title, body) { try { const arr = this.inbox(); arr.unshift({ t: title || '', b: body || '', at: Date.now() }); localStorage.setItem('rweida_inbox', JSON.stringify(arr.slice(0, 30))) } catch (e) {} }
 
   componentDidMount() {
+    this.loadUndo()
     this._t = setTimeout(() => {
       if (this.state.screen === 'splash') this.setState({ screen: 'home' })
     }, 2300)
@@ -591,12 +592,60 @@ export default class App extends React.Component {
   tapDhikr(id, max) { const a = this.loadAth(); if (!a.c) a.c = {}; const cur = a.c[id] || 0; a.c[id] = cur + 1 >= max ? max : cur + 1; try { localStorage.setItem('rweida_ath', JSON.stringify(a)) } catch (e) {} this.hap(); this.setState({ tick: this.state.tick + 1 }) }
   resetAth(ids) { const a = this.loadAth(); if (!a.c) a.c = {}; for (const id of ids) delete a.c[id]; try { localStorage.setItem('rweida_ath', JSON.stringify(a)) } catch (e) {} this.hap(); this.setState({ tick: this.state.tick + 1 }) }
   persist(d) { this.data = d; try { localStorage.setItem('rweida_v1', JSON.stringify(d)) } catch (e) {} }
+  // اسم ودّي لآخر إجراء (لعرضه في زر التراجع).
+  undoLabel(patch, sections) {
+    const p = patch || {}, s = sections || []
+    if (s.includes('history') || (p.settings && p.settings.lastPeriod !== undefined && p.settings.lastPeriod !== (this.data.settings || {}).lastPeriod)) return 'تعديل الدورة'
+    if (p.logs) return 'تسجيل يومي'
+    if (p.occasions) return 'مناسبة'
+    if (p.appointments) return 'موعد'
+    if (p.pregnancy) return 'وضع الحمل'
+    if (p.settings) return 'الإعدادات'
+    return 'آخر إجراء'
+  }
+  // لقطة قبل كل تعديل — تُخزَّن في مكدّس التراجع (آخر ٢٠ إجراء).
+  pushUndo(patch, sections) {
+    try {
+      const snap = { data: JSON.parse(JSON.stringify(this.data)), label: this.undoLabel(patch, sections) }
+      this._undo = this._undo || []
+      this._undo.push(snap)
+      if (this._undo.length > 20) this._undo = this._undo.slice(this._undo.length - 20)
+      localStorage.setItem('rweida_undo', JSON.stringify(this._undo))
+    } catch (e) {}
+  }
+  loadUndo() { try { this._undo = JSON.parse(localStorage.getItem('rweida_undo') || '[]') } catch (e) { this._undo = [] } }
+  canUndo() { return !!(this._undo && this._undo.length) }
+  lastUndoLabel() { return this.canUndo() ? this._undo[this._undo.length - 1].label : '' }
+  // التراجع عن آخر إجراء: يستعيد اللقطة السابقة ويرفع طوابعها الزمنية لتفوز بالدمج السحابي.
+  undo() {
+    if (!this.canUndo()) return
+    const snap = this._undo.pop()
+    try { localStorage.setItem('rweida_undo', JSON.stringify(this._undo)) } catch (e) {}
+    const now = NOW(), cur = this.data, base = snap.data
+    const d = { ...base, updatedAt: now, editedBy: this.identity }
+    for (const sec of ['settings', 'history', 'pregnancy']) d[sec + 'UpdatedAt'] = now
+    // السجلات: ارفع طابع أي يوم تغيّر، وامسح أي يوم أضافه الإجراء (غير موجود في اللقطة).
+    const logs = { ...(base.logs || {}) }, curLogs = cur.logs || {}
+    for (const k in logs) { if (JSON.stringify(logs[k]) !== JSON.stringify(curLogs[k])) logs[k] = { ...logs[k], updatedAt: now } }
+    for (const k in curLogs) { if (!(k in logs)) logs[k] = { ...this.emptyLog(), updatedAt: now } }
+    d.logs = logs
+    // القوائم (مناسبات/مواعيد/أذكار): ارفع طابع العناصر المتغيّرة كي تُستعاد قيمها.
+    ;['occasions', 'appointments', 'athkarM', 'athkarE'].forEach(key => {
+      if (!Array.isArray(base[key])) return
+      const curMap = {}; (Array.isArray(cur[key]) ? cur[key] : []).forEach(it => { if (it && it.id) curMap[it.id] = it })
+      d[key] = base[key].map(it => (it && it.id && JSON.stringify(it) !== JSON.stringify(curMap[it.id])) ? { ...it, updatedAt: now } : it)
+    })
+    this.persist(d); this.hap(); this.setState({ tick: this.state.tick + 1, lastAction: null }); this.scheduleCloud()
+    this.showToast('↩️ تم التراجع عن «' + snap.label + '»')
+  }
   // الحفظ العام: يطبع الطوابع الزمنية للأقسام المعدّلة، يخزّن محليًا، ثم يزامن بالدمج.
   commit(patch, sections) {
     const now = NOW()
+    this.pushUndo(patch, sections)
     const d = { ...this.data, ...patch, updatedAt: now, editedBy: this.identity }
     for (const sec of (sections || [])) d[sec + 'UpdatedAt'] = now
-    this.persist(d); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud()
+    this.persist(d); this.setState({ tick: this.state.tick + 1, lastAction: this.undoLabel(patch, sections) }); this.scheduleCloud()
+    clearTimeout(this._undoPillT); this._undoPillT = setTimeout(() => this.setState({ lastAction: null }), 7000)
   }
   // متوافق مع النداءات القديمة: يحفظ كامل الكائن مع تحديث طوابع كل الأقسام (للاستيراد/إعادة الضبط).
   save(d) { this.persist({ ...d, updatedAt: NOW(), editedBy: this.identity }); this.setState({ tick: this.state.tick + 1 }); this.scheduleCloud() }
@@ -1399,6 +1448,13 @@ export default class App extends React.Component {
             </div>
           )}
           {this.state.toast && <div className="toast">{this.state.toast}</div>}
+          {this.state.lastAction && this.canUndo() && !this.state.toast && (
+            <div className="undopill">
+              <span className="upi">✓ {this.state.lastAction}</span>
+              <button className="upu" onClick={() => this.undo()}>↩️ تراجع</button>
+              <button className="upx" aria-label="إغلاق" onClick={() => this.setState({ lastAction: null })}>✕</button>
+            </div>
+          )}
           {this.state.imgView && (
             <div className="lightbox" onClick={() => this.setState({ imgView: null })}>
               <img src={this.state.imgView} alt="" onClick={e => e.stopPropagation()} />
@@ -2001,6 +2057,15 @@ export default class App extends React.Component {
     return (
       <div className="screen stagger">
         <div className="hd" style={{ alignItems: 'center' }}><div><div className="hi">خصّصي تجربتكِ</div><h1 className="nm">الإعدادات</h1></div><button className="tbtn" aria-label="رجوع" onClick={() => this.go('more')}><Icon name="chevron-right" /></button></div>
+        <div className="card">
+          <div className="ttl">↩️ التراجع</div>
+          {this.canUndo()
+            ? <>
+                <p className="selsum" style={{ margin: '0 0 11px' }}>آخر إجراء: <b style={{ color: 'var(--rose-d)' }}>{this.lastUndoLabel()}</b> — تقدر تتراجع عنه.</p>
+                <button className="qbtn" onClick={() => { this.undo(); this.setState({ tick: this.state.tick + 1 }) }}>↩️ تراجع عن آخر إجراء</button>
+              </>
+            : <p className="selsum" style={{ margin: 0 }}>ما فيه إجراء للتراجع عنه حاليًا. أي تعديل تسوّيه يقدر يتراجع من هنا.</p>}
+        </div>
         <div className="card"><div className="couple"><div className="ch">{v.coupleLabel} 🤍</div><div className="cs">رحلة الحمل تبدأ بالتخطيط معًا</div></div></div>
         <div className="card">
           <div className="ttl">الأسماء</div>
